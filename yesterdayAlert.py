@@ -7,7 +7,7 @@ import pandas as pd  # Biblioteca para manipulação de dados
 from tabulate import tabulate  # Biblioteca para exibição tabular de dados
 
 # Prefixo das assinaturas
-subscription_prefix = 'LOBIANCO'
+subscription_prefix = 'Inicio comum do nome das suas subscrições' #
 
 # Função para obter os IDs das assinaturas que começam com o prefixo fornecido
 def get_subscription_ids(subscription_prefix):

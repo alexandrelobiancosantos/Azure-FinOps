@@ -18,12 +18,9 @@ Ensure you have the following roles assigned to run the scripts:
 
 ## Setup
 
-1. **Clone the Repository**
+1. **Open the Integrated Terminal**
 
-    ```sh
-    git clone <repository_url>
-    cd <repository_directory>
-    ```
+    Open the integrated terminal in your browser environment where you have access to Azure CLI.
 
 2. **Install Azure CLI**
 
@@ -52,34 +49,29 @@ Analyze Azure costs by dimensions like `ServiceName`, `ResourceGroup`, and `Mete
 
 **Syntax:**
 
-```sh
-python costAnalysisBy.py <Dimension> <Subscription_Prefix>
-Example:
 
-sh
-Copiar código
-python costAnalysisBy.py 'ServiceName' 'LOBIANCO - PROD'
-costAnalysisByTag.py
+python costAnalysisBy.py <Dimension> <Subscription_Prefix>
+
+
+### costAnalysisByTag.py
+
 Analyze Azure costs grouped by tag values.
 
-Syntax:
 
-sh
-Copiar código
+**Syntax:**
+
 python costAnalysisByTag.py <Tag_Key> <Subscription_Prefix>
-Example:
 
-sh
-Copiar código
-python costAnalysisByTag.py 'projeto' 'LOBIANCO - NPROD'
-Output
+### Output
 The scripts output a detailed cost analysis in tabular format, showing average cost, cost for the previous day, and alerts if costs exceed the average plus standard deviation.
 
-Example Output
-costAnalysisByTag.py
+### Anomaly Detection
+The scripts include a simple anomaly detection mechanism where an alert is triggered if the cost for the previous day exceeds the average cost plus one standard deviation for the period analyzed. Because who doesn’t love a good surprise?
 
-plaintext
-Copiar código
+
+### Example Output
+
+costAnalysisByTag.py
 INFO:root:Starting analysis for tag key: projeto and subscription prefix: LOBIANCO - NPROD
 INFO:root:Access token generated successfully.
 INFO:root:Analyzing subscription: LOBIANCO - NPROD with ID: <subscription_id>
@@ -90,7 +82,7 @@ INFO:root:Cost analysis by tag key 'projeto':
 +====+===============+================+==================+=========+=================================+=================+
 |  0 | python_finops |          0.035 |            0.052 | Yes     | 2024-06-07 to 2024-06-14        | 2024-06-14      |
 +----+---------------+----------------+------------------+---------+---------------------------------+-----------------+
-Conclusion
-This project helps in managing and optimizing Azure costs by providing detailed cost analysis through easy-to-use scripts. Ensure you have the necessary Azure roles assigned and follow the setup instructions for seamless execution.
 
-For further assistance, refer to the Azure Cost Management documentation and the Azure CLI documentation.
+
+### Conclusion
+This project helps in managing and optimizing Azure costs by providing detailed cost analysis through easy-to-use scripts. Ensure you have the necessary Azure roles assigned and follow the setup instructions for seamless execution.

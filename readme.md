@@ -22,13 +22,26 @@ Ensure you have the following roles assigned to run the scripts:
 
     Open the integrated terminal in your browser environment where you have access to Azure CLI.
 
+<<<<<<< HEAD
 
 
+=======
+>>>>>>> 457488cdb0a40d663917d790a771bfdebc7d4861
 2. **Install Azure CLI**
 
     Ensure you have [Azure CLI](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli) installed and configured.
 
+<<<<<<< HEAD
 3. **Assign Roles**
+=======
+3. **Login to Azure**
+
+    ```sh
+    az login
+    ```
+
+4. **Assign Roles**
+>>>>>>> 457488cdb0a40d663917d790a771bfdebc7d4861
 
     Ensure your account has the necessary roles:
 
@@ -58,6 +71,7 @@ Analyze Azure costs grouped by tag values.
 
 python costAnalysisByTag.py <Tag_Key> <Subscription_Prefix>
 
+<<<<<<< HEAD
 ## Output
 The scripts output a detailed cost analysis in tabular format, showing average cost, cost for the previous day, and alerts if costs exceed the average plus standard deviation.
 
@@ -66,6 +80,16 @@ The scripts include a simple anomaly detection mechanism where an alert is trigg
 
 
 ## Example Output
+=======
+### Output
+The scripts output a detailed cost analysis in tabular format, showing average cost, cost for the previous day, and alerts if costs exceed the average plus standard deviation.
+
+### Anomaly Detection
+The scripts include a simple anomaly detection mechanism where an alert is triggered if the cost for the previous day exceeds the average cost plus one standard deviation for the period analyzed. Because who doesn’t love a good surprise?
+
+
+### Example Output
+>>>>>>> 457488cdb0a40d663917d790a771bfdebc7d4861
 
 costAnalysisByTag.py
 INFO:root:Starting analysis for tag key: projeto and subscription prefix: LOBIANCO - NPROD

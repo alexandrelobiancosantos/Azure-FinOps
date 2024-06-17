@@ -5,18 +5,18 @@ from utils import get_access_token, get_subscription_ids, analyze_costs, setup_l
 def main():
     # Configuração do parsing de argumentos da linha de comando
     parser = argparse.ArgumentParser(description='Analyze Azure costs')
-    parser.add_argument('analysis_type', type=str, help='Type of analysis (e.g., ServiceName, ResourceGroup, MeterCategory)')
     parser.add_argument('subscription_prefix', type=str, help='Prefix of the subscription to analyze')
+    parser.add_argument('analysis_type', type=str, help='Type of analysis (e.g., ServiceName, ResourceGroup, MeterCategory)')
 
     args = parser.parse_args()
 
     # Configuração do logging
     setup_logging()
 
-    analysis_type = args.analysis_type
     subscription_prefix = args.subscription_prefix
+    analysis_type = args.analysis_type
 
-    logging.info(f"Starting analysis for type: {analysis_type} and subscription prefix: {subscription_prefix}")
+    logging.info(f"Starting analysis for subscription prefix: {subscription_prefix} and analysis type: {analysis_type}")
 
     access_token = get_access_token()
     subscription_ids = get_subscription_ids(subscription_prefix)

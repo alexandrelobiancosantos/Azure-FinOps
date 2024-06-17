@@ -59,7 +59,7 @@ def get_access_token():
         logging.error(f"Unexpected error: {e}")
         exit(1)
 
-def analyze_costs(subscription_name, subscription_id, grouping_dimension, access_token):
+def analyze_costs(subscription_name, subscription_id, grouping_dimension, access_token, tag_key=None):
     cost_management_url = f'https://management.azure.com/subscriptions/{subscription_id}/providers/Microsoft.CostManagement/query?api-version=2021-10-01'
 
     end_date = datetime.utcnow()
@@ -67,6 +67,11 @@ def analyze_costs(subscription_name, subscription_id, grouping_dimension, access
     timeframe = {
         "from": start_date.strftime('%Y-%m-%d'),
         "to": end_date.strftime('%Y-%m-%d')
+    }
+
+    grouping = {
+        "type": "Dimension" if not tag_key else "TagKey",
+        "name": grouping_dimension if not tag_key else tag_key
     }
 
     payload = {
@@ -81,12 +86,7 @@ def analyze_costs(subscription_name, subscription_id, grouping_dimension, access
                     "function": "Sum"
                 }
             },
-            "grouping": [
-                {
-                    "type": "Dimension",
-                    "name": grouping_dimension
-                }
-            ]
+            "grouping": [grouping]
         }
     }
 
@@ -138,9 +138,12 @@ def analyze_costs(subscription_name, subscription_id, grouping_dimension, access
         average_cost = statistics.mean(cost_values)
         std_dev_cost = statistics.stdev(cost_values) if len(cost_values) > 1 else 0
         cost_yesterday = next((cost for date, cost in costs if date == int(yesterday_str)), 0)
-        alert = "Yes" if cost_yesterday > (average_cost + std_dev_cost) else "No"
+
+        logging.info(f"Group: {group}, Average Cost: {average_cost}, Cost Yesterday: {cost_yesterday}, Std Dev: {std_dev_cost}")
+
+        alert = "Yes" if cost_yesterday > average_cost else "No"
         results.append({
-            grouping_dimension: group,
+            grouping_dimension if not tag_key else tag_key: group,
             "Average Cost": average_cost,
             "Cost Yesterday": cost_yesterday,
             "Alert": alert,

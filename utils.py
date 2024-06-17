@@ -117,6 +117,7 @@ def analyze_costs(subscription_name, subscription_id, grouping_dimension, access
     costs_by_group = {}
     total_cost_yesterday = 0
     yesterday_str = (end_date - timedelta(days=1)).strftime('%Y%m%d')
+    analysis_date = datetime.utcnow().strftime('%Y-%m-%d')
 
     for result in data['properties']['rows']:
         cost = float(result[0])
@@ -142,7 +143,9 @@ def analyze_costs(subscription_name, subscription_id, grouping_dimension, access
             grouping_dimension: group,
             "Average Cost": average_cost,
             "Cost Yesterday": cost_yesterday,
-            "Alert": alert
+            "Alert": alert,
+            "Period of Average Calculation": f"{start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}",
+            "Analysis Date": analysis_date
         })
 
     df = pd.DataFrame(results)

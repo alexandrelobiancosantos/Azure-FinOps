@@ -123,14 +123,15 @@ def analyze_costs_by_tag(subscription_name, subscription_id, tag_key, access_tok
     for result in data['properties']['rows']:
         cost = float(result[0])
         date = result[1]
-        tag_value = result[2]
+        tag_value = result[3]  # Capturando o valor da tag corretamente
 
-        if tag_value not in costs_by_tag:
-            costs_by_tag[tag_value] = []
-        costs_by_tag[tag_value].append((date, cost))
+        if tag_value:  # Verifica se tag_value não está vazio
+            if tag_value not in costs_by_tag:
+                costs_by_tag[tag_value] = []
+            costs_by_tag[tag_value].append((date, cost))
 
-        if date == int(yesterday_str):
-            total_cost_yesterday += cost
+            if date == int(yesterday_str):
+                total_cost_yesterday += cost
 
     results = []
 
@@ -141,7 +142,7 @@ def analyze_costs_by_tag(subscription_name, subscription_id, tag_key, access_tok
         cost_yesterday = next((cost for date, cost in costs if date == int(yesterday_str)), 0)
         alert = "Yes" if cost_yesterday > (average_cost + std_dev_cost) else "No"
         results.append({
-            "Tag Name": tag_value,
+            tag_key: tag_value,  # Usando a chave da tag como o cabeçalho
             "Average Cost": average_cost,
             "Cost Yesterday": cost_yesterday,
             "Alert": alert,

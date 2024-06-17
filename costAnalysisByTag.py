@@ -140,7 +140,11 @@ def analyze_costs_by_tag(subscription_name, subscription_id, tag_key, access_tok
         average_cost = statistics.mean(cost_values)
         std_dev_cost = statistics.stdev(cost_values) if len(cost_values) > 1 else 0
         cost_yesterday = next((cost for date, cost in costs if date == int(yesterday_str)), 0)
-        alert = "Yes" if cost_yesterday > (average_cost + std_dev_cost) else "No"
+
+        logging.info(f"Tag: {tag_value}, Average Cost: {average_cost}, Cost Yesterday: {cost_yesterday}, Std Dev: {std_dev_cost}")
+
+        # Atualizando a regra de alerta conforme solicitado
+        alert = "Yes" if cost_yesterday > average_cost else "No"
         results.append({
             tag_key: tag_value,  # Usando a chave da tag como o cabeçalho
             "Average Cost": average_cost,
@@ -172,7 +176,7 @@ def main():
     subscription_prefix = args.subscription_prefix
     tag_key = args.tag_key
 
-    logging.info(f"Starting analysis for tag key: {tag_key} and subscription prefix: {subscription_prefix}")
+    logging.info(f"Starting analysis for subscription prefix: {subscription_prefix} and tag key: {tag_key}")
 
     access_token = get_access_token()
     subscription_ids = get_subscription_ids(subscription_prefix)

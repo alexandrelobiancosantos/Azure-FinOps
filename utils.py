@@ -69,7 +69,7 @@ def get_analysis_timeframe():
 def build_cost_management_request(subscription_id, grouping_type, grouping_name, access_token):
     cost_management_url = f'https://management.azure.com/subscriptions/{subscription_id}/providers/Microsoft.CostManagement/query?api-version=2021-10-01'
 
-    start_date, end_date, timeframe = get_analysis_timeframe()  # Utilizando a função existente
+    start_date, end_date, timeframe = get_analysis_timeframe()
 
     payload = {
         "type": "ActualCost",
@@ -121,22 +121,12 @@ def process_costs(costs_by_group, grouping_key, start_date, end_date, yesterday_
 
     return results
 
-def make_post_request(url, headers, payload, subscription_name):
+def request_and_process(url, headers, payload, subscription_name):
     try:
         response = requests.post(url, headers=headers, json=payload)
         response.raise_for_status()
-        return response
     except requests.exceptions.RequestException as e:
         handle_errors(e, f"Failed to retrieve cost data for subscription '{subscription_name}'")
-
-def analyze_costs(subscription_name, subscription_id, grouping_dimension, access_token):
-    cost_management_url, payload, headers = build_cost_management_request(subscription_id, 'Dimension', grouping_dimension, access_token)  # Utilizando a nova função
-
-    start_date, end_date, _ = get_analysis_timeframe()  # Utilizando a função existente e capturando start_date e end_date
-
-    logging.debug(f"Sending request to Cost Management API for subscription {subscription_id} with payload: {json.dumps(payload, indent=2)}")
-
-    response = make_post_request(cost_management_url, headers, payload, subscription_name)  # Utilizando a nova função
 
     try:
         data = response.json()
@@ -146,6 +136,20 @@ def analyze_costs(subscription_name, subscription_id, grouping_dimension, access
 
     if 'properties' not in data or 'rows' not in data['properties']:
         logging.info("No Cost Found in the response data.")
+        return None, 0
+
+    return data
+
+def analyze_costs(subscription_name, subscription_id, grouping_dimension, access_token):
+    cost_management_url, payload, headers = build_cost_management_request(subscription_id, 'Dimension', grouping_dimension, access_token)
+
+    start_date, end_date, _ = get_analysis_timeframe()
+
+    logging.debug(f"Sending request to Cost Management API for subscription {subscription_id} with payload: {json.dumps(payload, indent=2)}")
+
+    data = request_and_process(cost_management_url, headers, payload, subscription_name)
+
+    if data is None:
         return "No Cost Found", 0
 
     costs_by_group = {}
@@ -164,7 +168,7 @@ def analyze_costs(subscription_name, subscription_id, grouping_dimension, access
         if date == int(yesterday_str):
             total_cost_yesterday += cost
 
-    results = process_costs(costs_by_group, grouping_dimension, start_date, end_date, yesterday_str)  # Utilizando a nova função
+    results = process_costs(costs_by_group, grouping_dimension, start_date, end_date, yesterday_str)
 
     df = pd.DataFrame(results)
 
@@ -175,22 +179,15 @@ def analyze_costs(subscription_name, subscription_id, grouping_dimension, access
     return tabulate(df, headers='keys', tablefmt='grid', floatfmt='.3f'), total_cost_yesterday
 
 def analyze_costs_by_tag(subscription_name, subscription_id, tag_key, access_token):
-    cost_management_url, payload, headers = build_cost_management_request(subscription_id, 'TagKey', tag_key, access_token)  # Utilizando a nova função
+    cost_management_url, payload, headers = build_cost_management_request(subscription_id, 'TagKey', tag_key, access_token)
 
-    start_date, end_date, _ = get_analysis_timeframe()  # Utilizando a função existente e capturando start_date e end_date
+    start_date, end_date, _ = get_analysis_timeframe()
 
     logging.debug(f"Sending request to Cost Management API for subscription {subscription_id} with payload: {json.dumps(payload, indent=2)}")
 
-    response = make_post_request(cost_management_url, headers, payload, subscription_name)  # Utilizando a nova função
+    data = request_and_process(cost_management_url, headers, payload, subscription_name)
 
-    try:
-        data = response.json()
-        logging.debug(f"Received data: {json.dumps(data, indent=2)}")
-    except json.JSONDecodeError as e:
-        handle_errors(e, "JSON decode error")
-
-    if 'properties' not in data or 'rows' not in data['properties']:
-        logging.info("No Cost Found in the response data.")
+    if data is None:
         return "No Cost Found", 0
 
     costs_by_tag = {}
@@ -200,7 +197,7 @@ def analyze_costs_by_tag(subscription_name, subscription_id, tag_key, access_tok
     for result in data['properties']['rows']:
         cost = float(result[0])
         date = result[1]
-        tag_value = result[3]  # Capturando o valor da tag corretamente
+        tag_value = result[3]
 
         if tag_value:
             if tag_value not in costs_by_tag:
@@ -210,7 +207,7 @@ def analyze_costs_by_tag(subscription_name, subscription_id, tag_key, access_tok
             if date == int(yesterday_str):
                 total_cost_yesterday += cost
 
-    results = process_costs(costs_by_tag, tag_key, start_date, end_date, yesterday_str)  # Utilizando a nova função
+    results = process_costs(costs_by_tag, tag_key, start_date, end_date, yesterday_str)
 
     df = pd.DataFrame(results)
 
@@ -219,3 +216,7 @@ def analyze_costs_by_tag(subscription_name, subscription_id, tag_key, access_tok
         return "No Cost Found", total_cost_yesterday
 
     return tabulate(df, headers='keys', tablefmt='grid', floatfmt='.3f'), total_cost_yesterday
+
+def save_execution_result(status):
+    with open('execution_result.txt', 'w') as file:
+        file.write(status)

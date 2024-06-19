@@ -1,39 +1,36 @@
+import sys
 import logging
-import argparse
-from utils import get_access_token, get_subscription_ids, analyze_costs, setup_logging
+from utils import get_access_token, get_subscription_ids, analyze_costs, analyze_costs_by_tag, setup_logging, save_execution_result
 
 def main():
-    # Configuração do parsing de argumentos da linha de comando
-    parser = argparse.ArgumentParser(description='Analyze Azure costs')
-    parser.add_argument('subscription_prefix', type=str, help='Prefix of the subscription to analyze')
-    parser.add_argument('analysis_type', type=str, help='Type of analysis (e.g., ServiceName, ResourceGroup, MeterCategory)')
-
-    args = parser.parse_args()
-
-    # Configuração do logging
     setup_logging()
-
-    subscription_prefix = args.subscription_prefix
-    analysis_type = args.analysis_type
+    subscription_prefix = sys.argv[1]
+    analysis_type = sys.argv[2]
 
     logging.info(f"Starting analysis for subscription prefix: {subscription_prefix} and analysis type: {analysis_type}")
 
-    access_token = get_access_token()
-    subscription_ids = get_subscription_ids(subscription_prefix)
+    try:
+        access_token = get_access_token()
+        logging.info("Access token generated successfully.")
 
-    for subscription_name, subscription_id in subscription_ids:
-        logging.info(f"\nAnalyzing subscription: {subscription_name} with ID: {subscription_id}")
+        subscription_ids = get_subscription_ids(subscription_prefix)
 
-        result, total_cost_yesterday = analyze_costs(subscription_name, subscription_id, analysis_type, access_token)
-        logging.info(f"Total Cost Yesterday: R$ {total_cost_yesterday:.3f}")
-        logging.info(f"\nCost analysis by {analysis_type}:")
+        for subscription_name, subscription_id in subscription_ids:
+            logging.info(f"\nAnalyzing subscription: {subscription_name} with ID: {subscription_id}")
 
-        if result is None:
-            logging.info("No data available due to an error or invalid grouping dimension.")
-        elif isinstance(result, str):
-            logging.info(result)
-        else:
-            logging.info("\n" + result)
+            if analysis_type.lower() == 'tag':
+                result, total_cost_yesterday = analyze_costs_by_tag(subscription_name, subscription_id, 'TagKey', access_token)
+            else:
+                result, total_cost_yesterday = analyze_costs(subscription_name, subscription_id, analysis_type, access_token)
+
+            print(result)
+            print(f"Total cost yesterday: {total_cost_yesterday:.2f}")
+
+        save_execution_result("sucesso")
+    except Exception as e:
+        logging.error(f"An error occurred: {e}")
+        save_execution_result("falha")
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()

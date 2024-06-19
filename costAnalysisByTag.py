@@ -1,7 +1,6 @@
 import logging
 import argparse
-from utils import get_access_token, get_subscription_ids, analyze_costs_by_tag, setup_logging
-
+from utils import get_access_token, get_subscription_ids, analyze_costs_by_tag, setup_logging, save_execution_result
 
 def main():
     # Configuração do parsing de argumentos da linha de comando
@@ -19,22 +18,30 @@ def main():
 
     logging.info(f"Starting analysis for tag key: {tag_key} and subscription prefix: {subscription_prefix}")
 
-    access_token = get_access_token()
-    subscription_ids = get_subscription_ids(subscription_prefix)
+    try:
+        access_token = get_access_token()
+        subscription_ids = get_subscription_ids(subscription_prefix)
 
-    for subscription_name, subscription_id in subscription_ids:
-        logging.info(f"\nAnalyzing subscription: {subscription_name} with ID: {subscription_id}")
+        for subscription_name, subscription_id in subscription_ids:
+            logging.info(f"\nAnalyzing subscription: {subscription_name} with ID: {subscription_id}")
 
-        result, total_cost_yesterday = analyze_costs_by_tag(subscription_name, subscription_id, tag_key, access_token)
-        logging.info(f"Total Cost Yesterday: R$ {total_cost_yesterday:.3f}")
-        logging.info(f"\nCost analysis by tag key '{tag_key}':")
+            result, total_cost_yesterday = analyze_costs_by_tag(subscription_name, subscription_id, tag_key, access_token)
+            logging.info(f"Total Cost Yesterday: {total_cost_yesterday:.2f} R$")
+            logging.info(f"\nCost analysis by tag key '{tag_key}':")
 
-        if result is None:
-            logging.info("No data available due to an error or invalid grouping dimension.")
-        elif isinstance(result, str):
-            logging.info(result)
-        else:
-            logging.info("\n" + result)
+            if result is None:
+                logging.info("No data available due to an error or invalid grouping dimension.")
+            elif isinstance(result, str):
+                logging.info(result)
+            else:
+                logging.info("\n" + result)
+
+        save_execution_result("sucesso")
+    except Exception as e:
+        logging.error(f"An error occurred: {e}")
+        save_execution_result("falha")
+        exit(1)
 
 if __name__ == "__main__":
     main()
+

@@ -14,27 +14,36 @@ def main():
         logging.info("Access token generated successfully.")
 
         subscription_ids = get_subscription_ids(subscription_prefix)
-        alerts = []
 
         for subscription_name, subscription_id in subscription_ids:
+            alerts = []
+            final_result = ""
+            total_cost_yesterday = 0
+            
             logging.info(f"\nAnalyzing subscription: {subscription_name} with ID: {subscription_id}")
 
             if analysis_type.lower() == 'tag':
-                result, total_cost_yesterday = analyze_costs_by_tag(subscription_name, subscription_id, 'TagKey', access_token)
+                result, cost_yesterday, df = analyze_costs_by_tag(subscription_name, subscription_id, 'TagKey', access_token)
             else:
-                result, total_cost_yesterday = analyze_costs(subscription_name, subscription_id, analysis_type, access_token)
+                result, cost_yesterday, df = analyze_costs(subscription_name, subscription_id, analysis_type, access_token)
+
+            total_cost_yesterday += cost_yesterday
 
             if "Yes" in result:
                 alerts.append(subscription_name)
 
             print(result)
             print(f"Total cost yesterday: {total_cost_yesterday:.2f}")
+            
+            final_result += result + "\n"
 
-        save_execution_result("sucesso", total_cost_yesterday, alerts)
+            save_execution_result("sucesso", subscription_name, analysis_type, total_cost_yesterday, alerts, final_result, df)
     except Exception as e:
         logging.error(f"An error occurred: {e}")
-        save_execution_result("falha")
+        save_execution_result("falha", "general")
         sys.exit(1)
 
 if __name__ == "__main__":
     main()
+
+

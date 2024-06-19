@@ -150,7 +150,7 @@ def analyze_costs(subscription_name, subscription_id, grouping_dimension, access
     data = request_and_process(cost_management_url, headers, payload, subscription_name)
 
     if data is None:
-        return "No Cost Found", 0
+        return "No Cost Found", 0, None
 
     costs_by_group = {}
     total_cost_yesterday = 0
@@ -174,9 +174,11 @@ def analyze_costs(subscription_name, subscription_id, grouping_dimension, access
 
     if df.empty:
         logging.info("No data to display.")
-        return "No Cost Found", total_cost_yesterday
+        return "No Cost Found", total_cost_yesterday, None
 
-    return tabulate(df, headers='keys', tablefmt='grid', floatfmt='.3f'), total_cost_yesterday
+    table = tabulate(df, headers='keys', tablefmt='plain', floatfmt='.3f')
+    return table, total_cost_yesterday, df
+
 
 def analyze_costs_by_tag(subscription_name, subscription_id, tag_key, access_token):
     cost_management_url, payload, headers = build_cost_management_request(subscription_id, 'TagKey', tag_key, access_token)
@@ -188,7 +190,7 @@ def analyze_costs_by_tag(subscription_name, subscription_id, tag_key, access_tok
     data = request_and_process(cost_management_url, headers, payload, subscription_name)
 
     if data is None:
-        return "No Cost Found", 0
+        return "No Cost Found", 0, None
 
     costs_by_tag = {}
     total_cost_yesterday = 0
@@ -213,16 +215,30 @@ def analyze_costs_by_tag(subscription_name, subscription_id, tag_key, access_tok
 
     if df.empty:
         logging.info("No data to display.")
-        return "No Cost Found", total_cost_yesterday
+        return "No Cost Found", total_cost_yesterday, None
 
-    return tabulate(df, headers='keys', tablefmt='grid', floatfmt='.3f'), total_cost_yesterday
+    table = tabulate(df, headers='keys', tablefmt='plain', floatfmt='.3f')
+    return table, total_cost_yesterday, df
 
-def save_execution_result(status, total_cost_yesterday=None, alerts=None):
-    with open('execution_result.txt', 'w') as file:
-        file.write(status + '\n')
+
+def save_execution_result(status, subscription_name, analysis_type=None, total_cost_yesterday=None, alerts=None, table=None, dataframe=None):
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    analysis_part = f"_{analysis_type}" if analysis_type else ""
+    filename_base = f"{subscription_name}{analysis_part}_{timestamp}"
+    
+    txt_filename = f"{filename_base}.txt"
+    csv_filename = f"{filename_base}.csv"
+
+    with open(txt_filename, 'w') as file:
         if total_cost_yesterday is not None:
             file.write(f"Total cost yesterday: {total_cost_yesterday:.2f}\n")
         if alerts:
-            file.write("Alerts:\n")
             for alert in alerts:
-                file.write(f"- {alert}\n")
+                file.write(f"{alert}\n")
+        if table:
+            file.write(table)
+
+    if dataframe is not None:
+        dataframe.to_csv(csv_filename, index=False)
+
+

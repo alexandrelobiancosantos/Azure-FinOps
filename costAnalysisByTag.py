@@ -21,12 +21,16 @@ def main():
     try:
         access_token = get_access_token()
         subscription_ids = get_subscription_ids(subscription_prefix)
-        alerts = []
 
         for subscription_name, subscription_id in subscription_ids:
+            alerts = []
+            final_result = ""
+            total_cost_yesterday = 0
+            
             logging.info(f"\nAnalyzing subscription: {subscription_name} with ID: {subscription_id}")
 
-            result, total_cost_yesterday = analyze_costs_by_tag(subscription_name, subscription_id, tag_key, access_token)
+            result, cost_yesterday, df = analyze_costs_by_tag(subscription_name, subscription_id, tag_key, access_token)
+            total_cost_yesterday += cost_yesterday
             logging.info(f"Total Cost Yesterday: {total_cost_yesterday:.2f} R$")
             logging.info(f"\nCost analysis by tag key '{tag_key}':")
 
@@ -39,12 +43,16 @@ def main():
                 logging.info(result)
             else:
                 logging.info("\n" + result)
+            
+            final_result += result + "\n"
 
-        save_execution_result("sucesso", total_cost_yesterday, alerts)
+            save_execution_result("sucesso", subscription_name, tag_key, total_cost_yesterday, alerts, final_result, df)
     except Exception as e:
         logging.error(f"An error occurred: {e}")
-        save_execution_result("falha")
+        save_execution_result("falha", "general")
         exit(1)
 
 if __name__ == "__main__":
     main()
+
+

@@ -59,22 +59,15 @@ def get_access_token():
         logging.error(f"Unexpected error: {e}")
         exit(1)
 
-from datetime import datetime, timedelta
+def analyze_costs(subscription_name, subscription_id, grouping_dimension, access_token):
+    cost_management_url = f'https://management.azure.com/subscriptions/{subscription_id}/providers/Microsoft.CostManagement/query?api-version=2021-10-01'
 
-def get_analysis_timeframe():
     end_date = datetime.utcnow()
     start_date = end_date - timedelta(days=7)
     timeframe = {
         "from": start_date.strftime('%Y-%m-%d'),
         "to": end_date.strftime('%Y-%m-%d')
     }
-    return start_date, end_date, timeframe
-
-
-def analyze_costs(subscription_name, subscription_id, grouping_dimension, access_token):
-    cost_management_url = f'https://management.azure.com/subscriptions/{subscription_id}/providers/Microsoft.CostManagement/query?api-version=2021-10-01'
-
-    start_date, end_date, timeframe = get_analysis_timeframe()  # Utilizando a nova função
 
     payload = {
         "type": "ActualCost",
@@ -145,6 +138,7 @@ def analyze_costs(subscription_name, subscription_id, grouping_dimension, access
         average_cost = statistics.mean(cost_values)
         std_dev_cost = statistics.stdev(cost_values) if len(cost_values) > 1 else 0
         cost_yesterday = next((cost for date, cost in costs if date == int(yesterday_str)), 0)
+        #alert = "Yes" if cost_yesterday > (average_cost + std_dev_cost) else "No"
         alert = "Yes" if cost_yesterday > (average_cost) else "No"
         results.append({
             grouping_dimension: group,
@@ -167,7 +161,12 @@ def analyze_costs(subscription_name, subscription_id, grouping_dimension, access
 def analyze_costs_by_tag(subscription_name, subscription_id, tag_key, access_token):
     cost_management_url = f'https://management.azure.com/subscriptions/{subscription_id}/providers/Microsoft.CostManagement/query?api-version=2021-10-01'
 
-    start_date, end_date, timeframe = get_analysis_timeframe()  # Utilizando a nova função
+    end_date = datetime.utcnow()
+    start_date = end_date - timedelta(days=7)
+    timeframe = {
+        "from": start_date.strftime('%Y-%m-%d'),
+        "to": end_date.strftime('%Y-%m-%d')
+    }
 
     payload = {
         "type": "ActualCost",
@@ -224,7 +223,7 @@ def analyze_costs_by_tag(subscription_name, subscription_id, tag_key, access_tok
         date = result[1]
         tag_value = result[3]  # Capturando o valor da tag corretamente
 
-        if tag_value:
+        if tag_value:  # Verifica se tag_value não está vazio
             if tag_value not in costs_by_tag:
                 costs_by_tag[tag_value] = []
             costs_by_tag[tag_value].append((date, cost))

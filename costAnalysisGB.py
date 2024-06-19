@@ -14,6 +14,7 @@ def main():
         logging.info("Access token generated successfully.")
 
         subscription_ids = get_subscription_ids(subscription_prefix)
+        alerts = []
 
         for subscription_name, subscription_id in subscription_ids:
             logging.info(f"\nAnalyzing subscription: {subscription_name} with ID: {subscription_id}")
@@ -23,10 +24,13 @@ def main():
             else:
                 result, total_cost_yesterday = analyze_costs(subscription_name, subscription_id, analysis_type, access_token)
 
+            if "Yes" in result:
+                alerts.append(subscription_name)
+
             print(result)
             print(f"Total cost yesterday: {total_cost_yesterday:.2f}")
 
-        save_execution_result("sucesso")
+        save_execution_result("sucesso", total_cost_yesterday, alerts)
     except Exception as e:
         logging.error(f"An error occurred: {e}")
         save_execution_result("falha")

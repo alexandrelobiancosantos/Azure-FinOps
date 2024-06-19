@@ -217,6 +217,12 @@ def analyze_costs_by_tag(subscription_name, subscription_id, tag_key, access_tok
 
     return tabulate(df, headers='keys', tablefmt='grid', floatfmt='.3f'), total_cost_yesterday
 
-def save_execution_result(status):
+def save_execution_result(status, total_cost_yesterday=None, alerts=None):
     with open('execution_result.txt', 'w') as file:
-        file.write(status)
+        file.write(status + '\n')
+        if total_cost_yesterday is not None:
+            file.write(f"Total cost yesterday: {total_cost_yesterday:.2f}\n")
+        if alerts:
+            file.write("Alerts:\n")
+            for alert in alerts:
+                file.write(f"- {alert}\n")

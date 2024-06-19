@@ -21,6 +21,7 @@ def main():
     try:
         access_token = get_access_token()
         subscription_ids = get_subscription_ids(subscription_prefix)
+        alerts = []
 
         for subscription_name, subscription_id in subscription_ids:
             logging.info(f"\nAnalyzing subscription: {subscription_name} with ID: {subscription_id}")
@@ -29,6 +30,9 @@ def main():
             logging.info(f"Total Cost Yesterday: {total_cost_yesterday:.2f} R$")
             logging.info(f"\nCost analysis by tag key '{tag_key}':")
 
+            if "Yes" in result:
+                alerts.append(subscription_name)
+
             if result is None:
                 logging.info("No data available due to an error or invalid grouping dimension.")
             elif isinstance(result, str):
@@ -36,7 +40,7 @@ def main():
             else:
                 logging.info("\n" + result)
 
-        save_execution_result("sucesso")
+        save_execution_result("sucesso", total_cost_yesterday, alerts)
     except Exception as e:
         logging.error(f"An error occurred: {e}")
         save_execution_result("falha")
@@ -44,4 +48,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

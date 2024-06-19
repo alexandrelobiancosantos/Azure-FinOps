@@ -10,6 +10,10 @@ import logging
 def setup_logging():
     logging.basicConfig(level=logging.INFO)
 
+def handle_errors(exception, message):
+    logging.error(f"{message}: {exception}")
+    exit(1)
+
 def get_subscription_ids(subscription_prefix):
     try:
         result = subprocess.run(
@@ -29,14 +33,11 @@ def get_subscription_ids(subscription_prefix):
             exit(1)
         return subscription_ids
     except subprocess.CalledProcessError as e:
-        logging.error(f"Command error: {e}")
-        exit(1)
+        handle_errors(e, "Command error")
     except json.JSONDecodeError as e:
-        logging.error(f"JSON decode error: {e}")
-        exit(1)
+        handle_errors(e, "JSON decode error")
     except Exception as e:
-        logging.error(f"Unexpected error: {e}")
-        exit(1)
+        handle_errors(e, "Unexpected error")
 
 def get_access_token():
     try:
@@ -50,16 +51,11 @@ def get_access_token():
         logging.info(f"Access token generated successfully.")
         return token_info['accessToken']
     except subprocess.CalledProcessError as e:
-        logging.error(f"Command error: {e}")
-        exit(1)
+        handle_errors(e, "Command error")
     except json.JSONDecodeError as e:
-        logging.error(f"JSON decode error: {e}")
-        exit(1)
+        handle_errors(e, "JSON decode error")
     except Exception as e:
-        logging.error(f"Unexpected error: {e}")
-        exit(1)
-
-from datetime import datetime, timedelta
+        handle_errors(e, "Unexpected error")
 
 def get_analysis_timeframe():
     end_date = datetime.utcnow()
@@ -70,11 +66,10 @@ def get_analysis_timeframe():
     }
     return start_date, end_date, timeframe
 
-
-def analyze_costs(subscription_name, subscription_id, grouping_dimension, access_token):
+def build_cost_management_request(subscription_id, grouping_type, grouping_name, access_token):
     cost_management_url = f'https://management.azure.com/subscriptions/{subscription_id}/providers/Microsoft.CostManagement/query?api-version=2021-10-01'
 
-    start_date, end_date, timeframe = get_analysis_timeframe()  # Utilizando a nova função
+    start_date, end_date, timeframe = get_analysis_timeframe()  # Utilizando a função existente
 
     payload = {
         "type": "ActualCost",
@@ -90,8 +85,8 @@ def analyze_costs(subscription_name, subscription_id, grouping_dimension, access
             },
             "grouping": [
                 {
-                    "type": "Dimension",
-                    "name": grouping_dimension
+                    "type": grouping_type,
+                    "name": grouping_name
                 }
             ]
         }
@@ -102,20 +97,52 @@ def analyze_costs(subscription_name, subscription_id, grouping_dimension, access
         'Content-Type': 'application/json'
     }
 
+    return cost_management_url, payload, headers
+
+def check_alert(cost_yesterday, average_cost):
+    return "Yes" if cost_yesterday > average_cost else "No"
+
+def process_costs(costs_by_group, grouping_key, start_date, end_date, yesterday_str):
+    results = []
+
+    for group_value, costs in costs_by_group.items():
+        cost_values = [cost for date, cost in costs]
+        average_cost = statistics.mean(cost_values)
+        cost_yesterday = next((cost for date, cost in costs if date == int(yesterday_str)), 0)
+        alert = check_alert(cost_yesterday, average_cost)
+        results.append({
+            grouping_key: group_value,
+            "Average Cost": average_cost,
+            "Cost Yesterday": cost_yesterday,
+            "Alert": alert,
+            "Period of Average Calculation": f"{start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}",
+            "Analysis Date": datetime.utcnow().strftime('%Y-%m-%d')
+        })
+
+    return results
+
+def make_post_request(url, headers, payload, subscription_name):
+    try:
+        response = requests.post(url, headers=headers, json=payload)
+        response.raise_for_status()
+        return response
+    except requests.exceptions.RequestException as e:
+        handle_errors(e, f"Failed to retrieve cost data for subscription '{subscription_name}'")
+
+def analyze_costs(subscription_name, subscription_id, grouping_dimension, access_token):
+    cost_management_url, payload, headers = build_cost_management_request(subscription_id, 'Dimension', grouping_dimension, access_token)  # Utilizando a nova função
+
+    start_date, end_date, _ = get_analysis_timeframe()  # Utilizando a função existente e capturando start_date e end_date
+
     logging.debug(f"Sending request to Cost Management API for subscription {subscription_id} with payload: {json.dumps(payload, indent=2)}")
 
-    response = requests.post(cost_management_url, headers=headers, json=payload)
-
-    if response.status_code != 200:
-        logging.error(f"Failed to retrieve cost data for subscription '{subscription_name}' with status code {response.status_code}\n{response.text}")
-        return None, 0
+    response = make_post_request(cost_management_url, headers, payload, subscription_name)  # Utilizando a nova função
 
     try:
         data = response.json()
         logging.debug(f"Received data: {json.dumps(data, indent=2)}")
     except json.JSONDecodeError as e:
-        logging.error(f"JSON decode error: {e}")
-        return None, 0
+        handle_errors(e, "JSON decode error")
 
     if 'properties' not in data or 'rows' not in data['properties']:
         logging.info("No Cost Found in the response data.")
@@ -124,7 +151,6 @@ def analyze_costs(subscription_name, subscription_id, grouping_dimension, access
     costs_by_group = {}
     total_cost_yesterday = 0
     yesterday_str = (end_date - timedelta(days=1)).strftime('%Y%m%d')
-    analysis_date = datetime.utcnow().strftime('%Y-%m-%d')
 
     for result in data['properties']['rows']:
         cost = float(result[0])
@@ -138,22 +164,7 @@ def analyze_costs(subscription_name, subscription_id, grouping_dimension, access
         if date == int(yesterday_str):
             total_cost_yesterday += cost
 
-    results = []
-
-    for group, costs in costs_by_group.items():
-        cost_values = [cost for date, cost in costs]
-        average_cost = statistics.mean(cost_values)
-        std_dev_cost = statistics.stdev(cost_values) if len(cost_values) > 1 else 0
-        cost_yesterday = next((cost for date, cost in costs if date == int(yesterday_str)), 0)
-        alert = "Yes" if cost_yesterday > (average_cost) else "No"
-        results.append({
-            grouping_dimension: group,
-            "Average Cost": average_cost,
-            "Cost Yesterday": cost_yesterday,
-            "Alert": alert,
-            "Period of Average Calculation": f"{start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}",
-            "Analysis Date": analysis_date
-        })
+    results = process_costs(costs_by_group, grouping_dimension, start_date, end_date, yesterday_str)  # Utilizando a nova função
 
     df = pd.DataFrame(results)
 
@@ -163,52 +174,20 @@ def analyze_costs(subscription_name, subscription_id, grouping_dimension, access
 
     return tabulate(df, headers='keys', tablefmt='grid', floatfmt='.3f'), total_cost_yesterday
 
-
 def analyze_costs_by_tag(subscription_name, subscription_id, tag_key, access_token):
-    cost_management_url = f'https://management.azure.com/subscriptions/{subscription_id}/providers/Microsoft.CostManagement/query?api-version=2021-10-01'
+    cost_management_url, payload, headers = build_cost_management_request(subscription_id, 'TagKey', tag_key, access_token)  # Utilizando a nova função
 
-    start_date, end_date, timeframe = get_analysis_timeframe()  # Utilizando a nova função
-
-    payload = {
-        "type": "ActualCost",
-        "timeframe": "Custom",
-        "timePeriod": timeframe,
-        "dataset": {
-            "granularity": "Daily",
-            "aggregation": {
-                "totalCost": {
-                    "name": "Cost",
-                    "function": "Sum"
-                }
-            },
-            "grouping": [
-                {
-                    "type": "TagKey",
-                    "name": tag_key
-                }
-            ]
-        }
-    }
-
-    headers = {
-        'Authorization': f'Bearer {access_token}',
-        'Content-Type': 'application/json'
-    }
+    start_date, end_date, _ = get_analysis_timeframe()  # Utilizando a função existente e capturando start_date e end_date
 
     logging.debug(f"Sending request to Cost Management API for subscription {subscription_id} with payload: {json.dumps(payload, indent=2)}")
 
-    response = requests.post(cost_management_url, headers=headers, json=payload)
-
-    if response.status_code != 200:
-        logging.error(f"Failed to retrieve cost data for subscription '{subscription_name}' with status code {response.status_code}\n{response.text}")
-        return None, 0
+    response = make_post_request(cost_management_url, headers, payload, subscription_name)  # Utilizando a nova função
 
     try:
         data = response.json()
         logging.debug(f"Received data: {json.dumps(data, indent=2)}")
     except json.JSONDecodeError as e:
-        logging.error(f"JSON decode error: {e}")
-        return None, 0
+        handle_errors(e, "JSON decode error")
 
     if 'properties' not in data or 'rows' not in data['properties']:
         logging.info("No Cost Found in the response data.")
@@ -217,7 +196,6 @@ def analyze_costs_by_tag(subscription_name, subscription_id, tag_key, access_tok
     costs_by_tag = {}
     total_cost_yesterday = 0
     yesterday_str = (end_date - timedelta(days=1)).strftime('%Y%m%d')
-    analysis_date = datetime.utcnow().strftime('%Y-%m-%d')
 
     for result in data['properties']['rows']:
         cost = float(result[0])
@@ -232,22 +210,7 @@ def analyze_costs_by_tag(subscription_name, subscription_id, tag_key, access_tok
             if date == int(yesterday_str):
                 total_cost_yesterday += cost
 
-    results = []
-
-    for tag_value, costs in costs_by_tag.items():
-        cost_values = [cost for date, cost in costs]
-        average_cost = statistics.mean(cost_values)
-        std_dev_cost = statistics.stdev(cost_values) if len(cost_values) > 1 else 0
-        cost_yesterday = next((cost for date, cost in costs if date == int(yesterday_str)), 0)
-        alert = "Yes" if cost_yesterday > (average_cost + std_dev_cost) else "No"
-        results.append({
-            tag_key: tag_value,  # Usando a chave da tag como o cabeçalho
-            "Average Cost": average_cost,
-            "Cost Yesterday": cost_yesterday,
-            "Alert": alert,
-            "Period of Average Calculation": f"{start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}",
-            "Analysis Date": analysis_date
-        })
+    results = process_costs(costs_by_tag, tag_key, start_date, end_date, yesterday_str)  # Utilizando a nova função
 
     df = pd.DataFrame(results)
 

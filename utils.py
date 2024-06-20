@@ -1,21 +1,3 @@
-"""
-Módulo utilitário para funções auxiliares usadas na análise de custos do Azure.
-
-Este módulo contém funções para configurar o logging, manipular erros, interagir com a CLI do Azure,
-recuperar dados de custo e processá-los. Ele fornece suporte para análise de custos agrupados por 
-dimensões e chaves de tag, assim como a construção de solicitações para a API de Gerenciamento de Custos do Azure.
-
-Funções principais:
-- setup_logging: Configura a configuração básica de logging.
-- handle_errors: Lida com erros, registrando a mensagem e a exceção e encerrando o programa.
-- get_subscription_ids: Recupera IDs de assinaturas com base em um prefixo fornecido.
-- get_access_token: Recupera um token de acesso para a API de gerenciamento do Azure.
-- build_cost_management_request: Constrói a solicitação para a API de Gerenciamento de Custos do Azure.
-- analyze_costs: Analisa os custos de uma assinatura agrupados por uma dimensão.
-- analyze_costs_by_tag: Analisa os custos de uma assinatura agrupados por uma chave de tag.
-- save_execution_result: Salva os resultados da execução em arquivos CSV.
-"""
-
 import subprocess
 import json
 import requests
@@ -324,3 +306,31 @@ def save_execution_result(status, subscription_name, analysis_type=None, total_c
 
     if dataframe is not None:
         dataframe.to_csv(csv_filename, index=False, sep='*', float_format='%.2f', decimal=',')
+
+def analyze_subscription(subscription_name, subscription_id, analysis_type, grouping_key, access_token, alert_mode=False):
+    final_result = ""
+    total_cost_yesterday = 0
+    
+    logging.info(f"\nAnalyzing subscription: {subscription_name} with ID: {subscription_id}")
+
+    if analysis_type.lower() == 'tag':
+        result, cost_yesterday, df = analyze_costs_by_tag(subscription_name, subscription_id, grouping_key, access_token)
+    else:
+        result, cost_yesterday, df = analyze_costs(subscription_name, subscription_id, grouping_key, access_token)
+
+    total_cost_yesterday += cost_yesterday
+
+    if alert_mode and df is not None:
+        alert_df = df[df['Alert'] == 'Yes']
+        if not alert_df.empty:
+            print(alert_df)
+            alert_result = tabulate(alert_df, headers='keys', tablefmt='plain', floatfmt='.3f')
+            final_result += alert_result + "\n"
+            save_execution_result("sucesso", subscription_name, analysis_type, total_cost_yesterday, ["Yes"], final_result, alert_df)
+    else:
+        print(result)
+        print(f"Total cost yesterday: {total_cost_yesterday:.2f}")
+        final_result += result + "\n"
+        save_execution_result("sucesso", subscription_name, analysis_type, total_cost_yesterday, [], final_result, df)
+
+    return total_cost_yesterday

@@ -9,6 +9,14 @@ gerar relatórios de custos, incluindo verificações de alerta se os custos de 
 Funções principais:
 - analyze_subscription: Analisa os custos de uma assinatura específica agrupados por uma dimensão ou chave de tag.
 - main: Configura e inicia o processo de análise com base em argumentos fornecidos via linha de comando.
+
+Instruções para executar:
+
+Para análise por tag:
+    python costAnalysis.py tag "subscrição" "chave da tag"
+
+Para análise por grupo:
+    python costAnalysis.py grupo "subscrição" "ServiceName"
 """
 
 import sys

@@ -1,3 +1,15 @@
+"""
+Módulo para análise de custos de assinaturas do Azure agrupados por dimensões específicas.
+
+Este script fornece funções para analisar os custos diários associados a diferentes assinaturas do Azure,
+agrupados por uma dimensão específica. Ele utiliza a API do Azure para coletar dados e gerar relatórios 
+de custos, incluindo verificações de alerta se os custos de ontem excederem a média dos últimos sete dias.
+
+Funções principais:
+- analyze_subscription: Analisa os custos de uma assinatura específica agrupados por uma dimensão.
+- main: Configura e inicia o processo de análise com base em argumentos fornecidos via linha de comando.
+"""
+
 import sys
 import logging
 from utils import get_access_token, get_subscription_ids, analyze_costs, analyze_costs_by_tag, setup_logging, save_execution_result

@@ -1,3 +1,21 @@
+"""
+Módulo utilitário para funções auxiliares usadas na análise de custos do Azure.
+
+Este módulo contém funções para configurar o logging, manipular erros, interagir com a CLI do Azure,
+recuperar dados de custo e processá-los. Ele fornece suporte para análise de custos agrupados por 
+dimensões e chaves de tag, assim como a construção de solicitações para a API de Gerenciamento de Custos do Azure.
+
+Funções principais:
+- setup_logging: Configura a configuração básica de logging.
+- handle_errors: Lida com erros, registrando a mensagem e a exceção e encerrando o programa.
+- get_subscription_ids: Recupera IDs de assinaturas com base em um prefixo fornecido.
+- get_access_token: Recupera um token de acesso para a API de gerenciamento do Azure.
+- build_cost_management_request: Constrói a solicitação para a API de Gerenciamento de Custos do Azure.
+- analyze_costs: Analisa os custos de uma assinatura agrupados por uma dimensão.
+- analyze_costs_by_tag: Analisa os custos de uma assinatura agrupados por uma chave de tag.
+- save_execution_result: Salva os resultados da execução em arquivos CSV.
+"""
+
 import subprocess
 import json
 import requests

@@ -1,3 +1,14 @@
+"""
+Módulo para análise de custos de assinaturas do Azure agrupados por uma chave de tag específica.
+
+Este script fornece funções para analisar os custos diários associados a diferentes assinaturas do Azure,
+agrupados por uma chave de tag específica. Ele utiliza a API do Azure para coletar dados e gerar relatórios 
+de custos, incluindo verificações de alerta se os custos de ontem excederem a média dos últimos sete dias.
+
+Funções principais:
+- analyze_subscription_by_tag: Analisa os custos de uma assinatura específica agrupados por uma chave de tag.
+- main: Configura e inicia o processo de análise com base em argumentos fornecidos via linha de comando.
+"""
 import logging
 import argparse
 from utils import get_access_token, get_subscription_ids, analyze_costs_by_tag, setup_logging, save_execution_result

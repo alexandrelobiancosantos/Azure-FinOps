@@ -83,7 +83,7 @@ def get_analysis_timeframe():
         tuple: Start date, end date, and timeframe dictionary.
     """
     end_date = datetime.utcnow()
-    start_date = end_date - timedelta(days=7)
+    start_date = end_date - timedelta(days=20)
     timeframe = {
         "from": start_date.strftime('%Y-%m-%d'),
         "to": end_date.strftime('%Y-%m-%d')
@@ -307,7 +307,7 @@ def save_execution_result(status, subscription_name, analysis_type=None, total_c
     if dataframe is not None:
         dataframe.to_csv(csv_filename, index=False, sep='*', float_format='%.2f', decimal=',')
 
-def analyze_subscription(subscription_name, subscription_id, analysis_type, grouping_key, access_token, alert_mode=False):
+def analyze_subscription(subscription_name, subscription_id, analysis_type, grouping_key, access_token, alert_mode=False, save_csv=False):
     final_result = ""
     total_cost_yesterday = 0
     
@@ -326,11 +326,13 @@ def analyze_subscription(subscription_name, subscription_id, analysis_type, grou
             print(alert_df)
             alert_result = tabulate(alert_df, headers='keys', tablefmt='plain', floatfmt='.3f')
             final_result += alert_result + "\n"
-            save_execution_result("sucesso", subscription_name, analysis_type, total_cost_yesterday, ["Yes"], final_result, alert_df)
+            if save_csv:
+                save_execution_result("sucesso", subscription_name, analysis_type, total_cost_yesterday, ["Yes"], final_result, alert_df)
     else:
         print(result)
         print(f"Total cost yesterday: {total_cost_yesterday:.2f}")
         final_result += result + "\n"
-        save_execution_result("sucesso", subscription_name, analysis_type, total_cost_yesterday, [], final_result, df)
+        if save_csv:
+            save_execution_result("sucesso", subscription_name, analysis_type, total_cost_yesterday, [], final_result, df)
 
     return total_cost_yesterday

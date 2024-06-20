@@ -21,6 +21,7 @@ Para análise por grupo:
 import sys
 import logging
 import argparse
+from tabulate import tabulate
 from utils import get_access_token, get_subscription_ids, analyze_costs, analyze_costs_by_tag, setup_logging, save_execution_result
 import pandas as pd
 

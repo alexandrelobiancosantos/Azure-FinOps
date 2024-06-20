@@ -1,2 +1,4 @@
+.gitignore
 rascunho.txt
 backlog.txt
+/older

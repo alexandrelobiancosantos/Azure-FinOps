@@ -75,15 +75,23 @@ def get_access_token():
 
 # Funções que processam os dados
 
-def get_analysis_timeframe():
+def get_analysis_timeframe(start_date_str=None):
     """
-    Get the analysis timeframe from the current date to seven days ago.
+    Get the analysis timeframe retroactive to seven days from the given date or yesterday if no date is given.
+    
+    Args:
+        start_date_str (str, optional): The start date in 'YYYY-MM-DD' format. Defaults to None.
 
     Returns:
         tuple: Start date, end date, and timeframe dictionary.
     """
-    end_date = datetime.utcnow()
-    start_date = end_date - timedelta(days=20)
+    if start_date_str:
+        end_date = datetime.strptime(start_date_str, '%Y-%m-%d')
+    else:
+        end_date = datetime.utcnow() - timedelta(days=1)
+    
+    start_date = end_date - timedelta(days=7)
+    
     timeframe = {
         "from": start_date.strftime('%Y-%m-%d'),
         "to": end_date.strftime('%Y-%m-%d')
@@ -137,7 +145,7 @@ def check_alert(cost_yesterday, average_cost):
     """
     return "Yes" if cost_yesterday > average_cost else "No"
 
-def process_costs(costs_by_group, grouping_key, start_date, end_date, yesterday_str):
+def process_costs(costs_by_group, grouping_key, start_date, end_date, analysis_date_str):
     """
     Process costs by group and calculate average costs, alerts, and additional metrics.
 
@@ -146,7 +154,7 @@ def process_costs(costs_by_group, grouping_key, start_date, end_date, yesterday_
         grouping_key (str): The key to group costs by.
         start_date (datetime): The start date for the analysis period.
         end_date (datetime): The end date for the analysis period.
-        yesterday_str (str): The string representation of yesterday's date.
+        analysis_date_str (str): The string representation of the analysis date.
 
     Returns:
         list: List of results with average costs, alerts, and additional metrics.
@@ -156,23 +164,24 @@ def process_costs(costs_by_group, grouping_key, start_date, end_date, yesterday_
     for group_value, costs in costs_by_group.items():
         cost_values = [cost for date, cost in costs]
         average_cost = statistics.mean(cost_values)
-        cost_yesterday = next((cost for date, cost in costs if date == int(yesterday_str)), 0)
-        alert = check_alert(cost_yesterday, average_cost)
-        percent_variation = ((cost_yesterday - average_cost) / average_cost) * 100 if average_cost != 0 else 0
-        cost_difference = cost_yesterday - average_cost
+        cost_on_analysis_date = next((cost for date, cost in costs if date == int(analysis_date_str)), 0)
+        alert = check_alert(cost_on_analysis_date, average_cost)
+        percent_variation = ((cost_on_analysis_date - average_cost) / average_cost) * 100 if average_cost != 0 else 0
+        cost_difference = cost_on_analysis_date - average_cost
 
         results.append({
             grouping_key: group_value,
             "Average Cost": average_cost,
-            "Cost Yesterday": cost_yesterday,
+            "Analysis Date Cost": cost_on_analysis_date,
             "Alert": alert,
             "Percent Variation": percent_variation,
             "Cost Difference": cost_difference,
             "Period of Average Calculation": f"{start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}",
-            "Analysis Date": datetime.utcnow().strftime('%Y-%m-%d')
+            "Analysis Date": end_date.strftime('%Y-%m-%d')
         })
 
     return results
+
 
 def request_and_process(url, headers, payload, subscription_name):
     """
@@ -206,15 +215,23 @@ def request_and_process(url, headers, payload, subscription_name):
 
     return data
 
-def analyze_costs(subscription_name, subscription_id, grouping_dimension, access_token):
+def analyze_costs(subscription_name, subscription_id, grouping_dimension, access_token, start_date_str=None):
     """
     Analyze costs for a subscription grouped by a specific dimension.
+    
+    Args:
+        subscription_name (str): Name of the subscription.
+        subscription_id (str): ID of the subscription.
+        grouping_dimension (str): The dimension to group costs by.
+        access_token (str): Azure access token.
+        start_date_str (str, optional): The start date for the analysis period. Defaults to None.
+
     Returns:
-        tuple: Analysis result as a table, total cost yesterday, and the dataframe.
+        tuple: Analysis result as a table, total cost on the analysis date, and the dataframe.
     """
     cost_management_url, payload, headers = build_cost_management_request(subscription_id, 'Dimension', grouping_dimension, access_token)
 
-    start_date, end_date, _ = get_analysis_timeframe()
+    start_date, end_date, _ = get_analysis_timeframe(start_date_str)
 
     logging.debug(f"Sending request to Cost Management API for subscription {subscription_id} with payload: {json.dumps(payload, indent=2)}")
 
@@ -224,8 +241,8 @@ def analyze_costs(subscription_name, subscription_id, grouping_dimension, access
         return "No Cost Found", 0, None
 
     costs_by_group = {}
-    total_cost_yesterday = 0
-    yesterday_str = (end_date - timedelta(days=1)).strftime('%Y%m%d')
+    total_cost_analysis_date = 0
+    analysis_date_str = end_date.strftime('%Y%m%d')
 
     for result in data['properties']['rows']:
         cost = float(result[0])
@@ -236,30 +253,37 @@ def analyze_costs(subscription_name, subscription_id, grouping_dimension, access
             costs_by_group[group] = []
         costs_by_group[group].append((date, cost))
 
-        if date == int(yesterday_str):
-            total_cost_yesterday += cost
+        if date == int(analysis_date_str):
+            total_cost_analysis_date += cost
 
-    results = process_costs(costs_by_group, grouping_dimension, start_date, end_date, yesterday_str)
+    results = process_costs(costs_by_group, grouping_dimension, start_date, end_date, analysis_date_str)
 
     df = pd.DataFrame(results)
 
     if df.empty:
         logging.info("No data to display.")
-        return "No Cost Found", total_cost_yesterday, None
+        return "No Cost Found", total_cost_analysis_date, None
 
     table = tabulate(df, headers='keys', tablefmt='plain', floatfmt='.3f')
-    return table, total_cost_yesterday, df
+    return table, total_cost_analysis_date, df
 
-def analyze_costs_by_tag(subscription_name, subscription_id, tag_key, access_token):
+def analyze_costs_by_tag(subscription_name, subscription_id, tag_key, access_token, start_date_str=None):
     """
     Analyze costs for a subscription grouped by a specific tag key.
+    
+    Args:
+        subscription_name (str): Name of the subscription.
+        subscription_id (str): ID of the subscription.
+        tag_key (str): The tag key to group costs by.
+        access_token (str): Azure access token.
+        start_date_str (str, optional): The start date for the analysis period. Defaults to None.
 
     Returns:
-        tuple: Analysis result as a table, total cost yesterday, and the dataframe.
+        tuple: Analysis result as a table, total cost on the analysis date, and the dataframe.
     """
     cost_management_url, payload, headers = build_cost_management_request(subscription_id, 'TagKey', tag_key, access_token)
 
-    start_date, end_date, _ = get_analysis_timeframe()
+    start_date, end_date, _ = get_analysis_timeframe(start_date_str)
 
     logging.debug(f"Sending request to Cost Management API for subscription {subscription_id} with payload: {json.dumps(payload, indent=2)}")
 
@@ -269,8 +293,8 @@ def analyze_costs_by_tag(subscription_name, subscription_id, tag_key, access_tok
         return "No Cost Found", 0, None
 
     costs_by_tag = {}
-    total_cost_yesterday = 0
-    yesterday_str = (end_date - timedelta(days=1)).strftime('%Y%m%d')
+    total_cost_analysis_date = 0
+    analysis_date_str = end_date.strftime('%Y%m%d')
 
     for result in data['properties']['rows']:
         cost = float(result[0])
@@ -282,43 +306,32 @@ def analyze_costs_by_tag(subscription_name, subscription_id, tag_key, access_tok
                 costs_by_tag[tag_value] = []
             costs_by_tag[tag_value].append((date, cost))
 
-            if date == int(yesterday_str):
-                total_cost_yesterday += cost
+            if date == int(analysis_date_str):
+                total_cost_analysis_date += cost
 
-    results = process_costs(costs_by_tag, tag_key, start_date, end_date, yesterday_str)
+    results = process_costs(costs_by_tag, tag_key, start_date, end_date, analysis_date_str)
 
     df = pd.DataFrame(results)
 
     if df.empty:
         logging.info("No data to display.")
-        return "No Cost Found", total_cost_yesterday, None
+        return "No Cost Found", total_cost_analysis_date, None
 
     table = tabulate(df, headers='keys', tablefmt='plain', floatfmt='.3f')
-    return table, total_cost_yesterday, df
+    return table, total_cost_analysis_date, df
 
-def save_execution_result(status, subscription_name, analysis_type=None, total_cost_yesterday=None, alerts=None, table=None, dataframe=None):
-
-    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    analysis_part = f"_{analysis_type}" if analysis_type else ""
-    filename_base = f"{subscription_name}{analysis_part}_{timestamp}"
-    
-    csv_filename = f"{filename_base}.csv"
-
-    if dataframe is not None:
-        dataframe.to_csv(csv_filename, index=False, sep='*', float_format='%.2f', decimal=',')
-
-def analyze_subscription(subscription_name, subscription_id, analysis_type, grouping_key, access_token, alert_mode=False, save_csv=False):
+def analyze_subscription(subscription_name, subscription_id, analysis_type, grouping_key, access_token, alert_mode=False, save_csv=False, start_date_str=None):
     final_result = ""
-    total_cost_yesterday = 0
+    total_cost_analysis_date = 0
     
     logging.info(f"\nAnalyzing subscription: {subscription_name} with ID: {subscription_id}")
 
     if analysis_type.lower() == 'tag':
-        result, cost_yesterday, df = analyze_costs_by_tag(subscription_name, subscription_id, grouping_key, access_token)
+        result, cost_analysis_date, df = analyze_costs_by_tag(subscription_name, subscription_id, grouping_key, access_token, start_date_str)
     else:
-        result, cost_yesterday, df = analyze_costs(subscription_name, subscription_id, grouping_key, access_token)
+        result, cost_analysis_date, df = analyze_costs(subscription_name, subscription_id, grouping_key, access_token, start_date_str)
 
-    total_cost_yesterday += cost_yesterday
+    total_cost_analysis_date += cost_analysis_date
 
     if alert_mode and df is not None:
         alert_df = df[df['Alert'] == 'Yes']
@@ -327,12 +340,12 @@ def analyze_subscription(subscription_name, subscription_id, analysis_type, grou
             alert_result = tabulate(alert_df, headers='keys', tablefmt='plain', floatfmt='.3f')
             final_result += alert_result + "\n"
             if save_csv:
-                save_execution_result("sucesso", subscription_name, analysis_type, total_cost_yesterday, ["Yes"], final_result, alert_df)
+                save_execution_result("sucesso", subscription_name, analysis_type, total_cost_analysis_date, ["Yes"], final_result, alert_df)
     else:
         print(result)
-        print(f"Total cost yesterday: {total_cost_yesterday:.2f}")
+        print(f"Total cost on analysis date: {total_cost_analysis_date:.2f}")
         final_result += result + "\n"
         if save_csv:
-            save_execution_result("sucesso", subscription_name, analysis_type, total_cost_yesterday, [], final_result, df)
+            save_execution_result("sucesso", subscription_name, analysis_type, total_cost_analysis_date, [], final_result, df)
 
-    return total_cost_yesterday
+    return total_cost_analysis_date

@@ -226,19 +226,19 @@ def save_execution_result(status, subscription_name, analysis_type=None, total_c
     analysis_part = f"_{analysis_type}" if analysis_type else ""
     filename_base = f"{subscription_name}{analysis_part}_{timestamp}"
     
-    txt_filename = f"{filename_base}.txt"
+    # txt_filename = f"{filename_base}.txt"
     csv_filename = f"{filename_base}.csv"
 
-    with open(txt_filename, 'w') as file:
-        if total_cost_yesterday is not None:
-            file.write(f"Total cost yesterday: {total_cost_yesterday:.2f}\n")
-        if alerts:
-            for alert in alerts:
-                file.write(f"{alert}\n")
-        if table:
-            file.write(table)
+    # with open(txt_filename, 'w') as file:
+    #     if total_cost_yesterday is not None:
+    #         file.write(f"Total cost yesterday: {total_cost_yesterday:.2f}\n")
+    #     if alerts:
+    #         for alert in alerts:
+    #             file.write(f"{alert}\n")
+    #     if table:
+    #         file.write(table)
 
     if dataframe is not None:
-        dataframe.to_csv(csv_filename, index=False)
+        dataframe.to_csv(csv_filename, index=False, sep='*', float_format='%.2f', decimal=',')
 
 

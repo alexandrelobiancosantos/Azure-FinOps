@@ -1,84 +1,97 @@
-# FinOps Cost Analysis
+# Azure Cost Analysis
 
-## Overview
+Este projeto contém scripts para analisar os custos do Azure agrupados por diferentes critérios, como grupo ou tag. Ele utiliza a CLI do Azure para obter informações sobre as assinaturas e tokens de acesso, e faz requisições para a API de Gerenciamento de Custos do Azure para coletar e processar dados.
 
-This project provides tools to analyze Azure cost management by different dimensions such as `ServiceName`, `ResourceGroup`, `MeterCategory`, and `TagKey`. The scripts help in monitoring and managing cloud expenditure effectively.
+## Estrutura do Projeto
 
-## Scripts
+O projeto está organizado em vários módulos para melhorar a modularidade e a manutenção:
 
-- **costAnalysisBy.py**: Analyzes Azure costs by dimensions like `ServiceName`, `ResourceGroup`, and `MeterCategory`.
-- **costAnalysisByTag.py**: Analyzes Azure costs grouped by tag values, specifically useful for tracking project-related expenses.
+- **logging_utils.py**: Configurações de logging e manipulação de erros.
+- **azure_cli_utils.py**: Funções para interagir com a CLI do Azure.
+- **data_processing_utils.py**: Funções para processar dados e calcular métricas.
+- **http_requests_utils.py**: Funções para fazer requisições HTTP para a API do Azure.
+- **Report.py**: Script principal que executa a análise de custos.
 
-## Prerequisites
+## Instalação
 
-Ensure you have the following roles assigned to run the scripts:
-
-- **Cost Management Contributor**: To read cost data.
-- **Reader**: To read resources and tags.
-
-## Setup
-
-1. **Open the Integrated Terminal**
-
-    Open the integrated terminal in your browser environment where you have access to Azure CLI.
-
-
-
-2. **Install Azure CLI**
-
-    Ensure you have [Azure CLI](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli) installed and configured.
-
-3. **Assign Roles**
-
-    Ensure your account has the necessary roles:
-
+1. Clone o repositório para o seu ambiente local:
     ```sh
-    az role assignment create --role "Cost Management Contributor" --assignee <your_account>
-    az role assignment create --role "Reader" --assignee <your_account>
+    git clone <URL_DO_REPOSITORIO>
+    cd <NOME_DO_REPOSITORIO>
     ```
 
-## Usage
+2. Certifique-se de ter o Python instalado (versão 3.6+).
 
-### costAnalysisBy.py
+3. Instale as dependências necessárias:
+    ```sh
+    pip install -r requirements.txt
+    ```
 
-Analyze Azure costs by dimensions like `ServiceName`, `ResourceGroup`, and `MeterCategory`.
+## Uso
 
-**Syntax:**
+### Report.py
 
+O script principal `Report.py` é usado para analisar os custos do Azure. Abaixo está a descrição de como utilizá-lo.
 
-python costAnalysisBy.py <Dimension> <Subscription_Prefix>
+#### Argumentos
 
+- `subscription_prefix`: Prefixo da assinatura do Azure para analisar.
+- `analysis_type`: Tipo de análise, podendo ser "grupo" ou "tag".
+- `grouping_key`: Chave de agrupamento para a análise (e.g., ServiceName, Projeto).
+- `--alert`: (Opcional) Ativa o modo de alerta para gerar alertas de altos custos.
+- `--csv`: (Opcional) Salva os resultados em um arquivo CSV.
+- `--date`: (Opcional) Data de início para o período de análise no formato YYYY-MM-DD.
 
-### costAnalysisByTag.py
+#### Exemplos de Uso
 
-Analyze Azure costs grouped by tag values.
+1. Analisar custos por grupo:
+    ```sh
+    python Report.py <subscription_prefix> grupo <grouping_key> --date 2023-01-01 --csv
+    ```
 
+2. Analisar custos por tag com alertas:
+    ```sh
+    python Report.py <subscription_prefix> tag <tag_key> --alert --csv
+    ```
 
-**Syntax:**
+## Módulos
 
-python costAnalysisByTag.py <Tag_Key> <Subscription_Prefix>
+### logging_utils.py
 
-## Output
-The scripts output a detailed cost analysis in tabular format, showing average cost, cost for the previous day, and alerts if costs exceed the average plus standard deviation.
+Configura o logging básico e manipula erros.
 
-## Anomaly Detection
-The scripts include a simple anomaly detection mechanism where an alert is triggered if the cost for the previous day exceeds the average cost plus one standard deviation for the period analyzed. Because who doesn’t love a good surprise?
+- `setup_logging()`: Configura o logging básico.
+- `handle_errors(exception, message)`: Manipula erros logando a mensagem e a exceção, e encerra o programa.
 
+### azure_cli_utils.py
 
-## Example Output
+Interage com a CLI do Azure para obter informações de assinaturas e tokens de acesso.
 
-costAnalysisByTag.py
-INFO:root:Starting analysis for tag key: projeto and subscription prefix: LOBIANCO - NPROD
-INFO:root:Access token generated successfully.
-INFO:root:Analyzing subscription: LOBIANCO - NPROD with ID: <subscription_id>
-INFO:root:Total Cost Yesterday: R$ 0.052
-INFO:root:Cost analysis by tag key 'projeto':
-+----+---------------+----------------+------------------+---------+---------------------------------+-----------------+
-|    | projeto       |   Average Cost |   Cost Yesterday | Alert   | Period of Average Calculation   | Analysis Date   |
-+====+===============+================+==================+=========+=================================+=================+
-|  0 | python_finops |          0.035 |            0.052 | Yes     | 2024-06-07 to 2024-06-14        | 2024-06-14      |
-+----+---------------+----------------+------------------+---------+---------------------------------+-----------------+
+- `get_subscription_ids(subscription_prefix)`: Recupera IDs de assinaturas que começam com o prefixo dado.
+- `get_access_token()`: Recupera um token de acesso para a API de gerenciamento do Azure.
 
+### data_processing_utils.py
 
-### Conclusion
-This project helps in managing and optimizing Azure costs by providing detailed cost analysis through easy-to-use scripts. Ensure you have the necessary Azure roles assigned and follow the setup instructions for seamless execution.
+Processa dados e calcula métricas.
+
+- `get_analysis_timeframe(start_date_str)`: Obtém o período de análise retroativo a sete dias a partir da data fornecida ou de ontem, se nenhuma data for fornecida.
+- `check_alert(cost_yesterday, average_cost)`: Verifica se o custo de ontem excede o custo médio.
+- `process_costs(costs_by_group, grouping_key, start_date, end_date, analysis_date_str)`: Processa os custos por grupo e calcula métricas.
+
+### http_requests_utils.py
+
+Faz requisições HTTP para a API de Gerenciamento de Custos do Azure e processa as respostas.
+
+- `build_cost_management_request(subscription_id, grouping_type, grouping_name, access_token)`: Constrói a requisição para a API de Gerenciamento de Custos do Azure.
+- `request_and_process(url, headers, payload, subscription_name)`: Envia a requisição para a API do Azure e processa a resposta.
+
+## Contribuição
+
+Se desejar contribuir com este projeto, por favor, siga os passos abaixo:
+
+1. Faça um fork do repositório.
+2. Crie uma nova branch (`git checkout -b feature/nova-feature`).
+3. Faça suas alterações e comite-as (`git commit -am 'Adiciona nova feature'`).
+4. Faça push para a branch (`git push origin feature/nova-feature`).
+5. Abra um Pull Request.
+

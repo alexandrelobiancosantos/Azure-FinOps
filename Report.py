@@ -33,9 +33,16 @@ def main():
         logging.info("Access token generated successfully.")
 
         subscription_ids = get_subscription_ids(subscription_prefix)
+        subscription_results = {}
 
         for subscription_name, subscription_id in subscription_ids:
-            analyze_subscription(subscription_name, subscription_id, analysis_type, grouping_key, access_token, alert_mode, save_csv, start_date_str)
+            sub_name, df, result = analyze_subscription(subscription_name, subscription_id, analysis_type, grouping_key, access_token, alert_mode, start_date_str)
+            if df is not None:
+                subscription_results[sub_name] = df
+            logging.info(result)
+
+        if save_csv and subscription_results:
+            save_execution_result("sucesso", subscription_results)
 
     except Exception as e:
         logging.error(f"An error occurred: {e}")
@@ -43,3 +50,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

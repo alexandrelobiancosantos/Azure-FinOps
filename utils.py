@@ -322,10 +322,7 @@ def analyze_costs_by_tag(subscription_name, subscription_id, tag_key, access_tok
     table = tabulate(df, headers='keys', tablefmt='plain', floatfmt='.3f')
     return table, total_cost_analysis_date, df
 
-def analyze_subscription(subscription_name, subscription_id, analysis_type, grouping_key, access_token, alert_mode=False, save_csv=False, start_date_str=None):
-    final_result = ""
-    total_cost_analysis_date = 0
-    
+def analyze_subscription(subscription_name, subscription_id, analysis_type, grouping_key, access_token, alert_mode=False, start_date_str=None):
     logging.info(f"\nAnalyzing subscription: {subscription_name} with ID: {subscription_id}")
 
     if analysis_type.lower() == 'tag':
@@ -333,48 +330,31 @@ def analyze_subscription(subscription_name, subscription_id, analysis_type, grou
     else:
         result, cost_analysis_date, df = analyze_costs(subscription_name, subscription_id, grouping_key, access_token, start_date_str)
 
-    total_cost_analysis_date += cost_analysis_date
-
     if alert_mode and df is not None:
         alert_df = df[df['Alert'] == 'Yes']
         if not alert_df.empty:
-            print(alert_df)
-            alert_result = tabulate(alert_df, headers='keys', tablefmt='plain', floatfmt='.3f')
-            final_result += alert_result + "\n"
-            if save_csv:
-                try:
-                    save_execution_result("sucesso", subscription_name, analysis_type, total_cost_analysis_date, ["Yes"], final_result, alert_df)
-                except Exception as e:
-                    logging.error(f"Failed to save results: {e}")
-    else:
-        print(result)
-        print(f"Total cost on analysis date: {total_cost_analysis_date:.2f}")
-        final_result += result + "\n"
-        if save_csv and df is not None:
-            try:
-                save_execution_result("sucesso", subscription_name, analysis_type, total_cost_analysis_date, [], final_result, df)
-            except Exception as e:
-                logging.error(f"Failed to save results: {e}")
-
-    return total_cost_analysis_date
+            logging.info(f"Alerts found for {subscription_name}.")
+            return subscription_name, alert_df, result
+    return subscription_name, df, result
 
 
-def save_execution_result(status, subscription_name, analysis_type, total_cost, alerts, result, df):
+
+
+
+
+def save_execution_result(status, subscription_results):
     """
-    Save the analysis result to a CSV file.
+    Save the analysis result to an Excel file with each subscription in a separate sheet.
     
     Args:
         status (str): The status of the execution.
-        subscription_name (str): The name of the subscription.
-        analysis_type (str): The type of analysis performed.
-        total_cost (float): The total cost on the analysis date.
-        alerts (list): List of alerts generated.
-        result (str): The result as a string.
-        df (DataFrame): The result dataframe.
+        subscription_results (dict): Dictionary with subscription names as keys and their DataFrames as values.
     """
-    filename = f"{subscription_name}_{analysis_type}_result_{pd.Timestamp.now().strftime('%Y%m%d%H%M%S')}.csv"
+    filename = f"subscription_analysis_result_{pd.Timestamp.now().strftime('%Y%m%d%H%M%S')}.xlsx"
     try:
-        df.to_csv(filename, index=False, sep='*', decimal=',')
+        with pd.ExcelWriter(filename, engine='xlsxwriter') as writer:
+            for subscription_name, df in subscription_results.items():
+                df.to_excel(writer, sheet_name=subscription_name, index=False, float_format="%.2f")
         logging.info(f"Results saved to {filename}")
     except Exception as e:
         logging.error(f"Failed to save results: {e}")

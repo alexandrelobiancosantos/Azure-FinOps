@@ -19,6 +19,17 @@ def handle_errors(exception, message):
     logging.error(f"{message}: {exception}")
     exit(1)
 
+def find_common_prefix(strings):
+    """Find the longest common prefix among a list of strings."""
+    if not strings:
+        return ""
+    shortest_str = min(strings, key=len)
+    for i, char in enumerate(shortest_str):
+        for other in strings:
+            if other[i] != char:
+                return shortest_str[:i]
+    return shortest_str
+
 # Funções que interagem com o Azure CLI
 
 def get_subscription_ids(subscription_prefix):

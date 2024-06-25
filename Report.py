@@ -1,8 +1,9 @@
 import argparse
 import logging
 import sys
+import time
 
-from utils import (analyze_subscription, get_access_token,
+from utils import (analyze_subscription, find_common_prefix, get_access_token,
                    get_subscription_ids, save_execution_result, setup_logging)
 
 
@@ -35,11 +36,21 @@ def main():
         subscription_ids = get_subscription_ids(subscription_prefix)
         subscription_results = {}
 
+        # Get the subscription names
+        subscription_names = [name for name, _ in subscription_ids]
+        common_prefix = find_common_prefix(subscription_names)
+
         for subscription_name, subscription_id in subscription_ids:
+            # Remove the common prefix from the subscription name for the worksheet name
+            short_name = subscription_name.replace(common_prefix, '').strip()
+
             sub_name, df, result = analyze_subscription(subscription_name, subscription_id, analysis_type, grouping_key, access_token, alert_mode, start_date_str)
             if df is not None:
-                subscription_results[sub_name] = df
+                subscription_results[short_name] = df
             logging.info(result)
+
+            # Sleep to avoid too many requests
+            time.sleep(2)  # Sleep for 2 seconds
 
         if save_csv and subscription_results:
             save_execution_result("sucesso", subscription_results)

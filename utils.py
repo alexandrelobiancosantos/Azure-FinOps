@@ -1,12 +1,14 @@
-import subprocess
 import json
-import requests
+import logging
+import statistics
+import subprocess
 import time
 from datetime import datetime, timedelta
-import statistics
+
 import pandas as pd
+import requests
 from tabulate import tabulate
-import logging
+
 
 def setup_logging():
     """Set up basic logging configuration."""
@@ -340,12 +342,39 @@ def analyze_subscription(subscription_name, subscription_id, analysis_type, grou
             alert_result = tabulate(alert_df, headers='keys', tablefmt='plain', floatfmt='.3f')
             final_result += alert_result + "\n"
             if save_csv:
-                save_execution_result("sucesso", subscription_name, analysis_type, total_cost_analysis_date, ["Yes"], final_result, alert_df)
+                try:
+                    save_execution_result("sucesso", subscription_name, analysis_type, total_cost_analysis_date, ["Yes"], final_result, alert_df)
+                except Exception as e:
+                    logging.error(f"Failed to save results: {e}")
     else:
         print(result)
         print(f"Total cost on analysis date: {total_cost_analysis_date:.2f}")
         final_result += result + "\n"
-        if save_csv:
-            save_execution_result("sucesso", subscription_name, analysis_type, total_cost_analysis_date, [], final_result, df)
+        if save_csv and df is not None:
+            try:
+                save_execution_result("sucesso", subscription_name, analysis_type, total_cost_analysis_date, [], final_result, df)
+            except Exception as e:
+                logging.error(f"Failed to save results: {e}")
 
     return total_cost_analysis_date
+
+
+def save_execution_result(status, subscription_name, analysis_type, total_cost, alerts, result, df):
+    """
+    Save the analysis result to a CSV file.
+    
+    Args:
+        status (str): The status of the execution.
+        subscription_name (str): The name of the subscription.
+        analysis_type (str): The type of analysis performed.
+        total_cost (float): The total cost on the analysis date.
+        alerts (list): List of alerts generated.
+        result (str): The result as a string.
+        df (DataFrame): The result dataframe.
+    """
+    filename = f"{subscription_name}_{analysis_type}_result_{pd.Timestamp.now().strftime('%Y%m%d%H%M%S')}.csv"
+    try:
+        df.to_csv(filename, index=False, sep='*', decimal=',')
+        logging.info(f"Results saved to {filename}")
+    except Exception as e:
+        logging.error(f"Failed to save results: {e}")

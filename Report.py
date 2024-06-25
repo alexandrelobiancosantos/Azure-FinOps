@@ -1,7 +1,10 @@
-import sys
-import logging
 import argparse
-from utils import get_access_token, get_subscription_ids, setup_logging, analyze_subscription
+import logging
+import sys
+
+from utils import (analyze_subscription, get_access_token,
+                   get_subscription_ids, save_execution_result, setup_logging)
+
 
 def main():
     parser = argparse.ArgumentParser(description='Analyze Azure costs by group or tag with optional alert generation')
@@ -40,4 +43,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

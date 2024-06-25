@@ -330,12 +330,22 @@ def analyze_subscription(subscription_name, subscription_id, analysis_type, grou
     else:
         result, cost_analysis_date, df = analyze_costs(subscription_name, subscription_id, grouping_key, access_token, start_date_str)
 
-    if alert_mode and df is not None:
-        alert_df = df[df['Alert'] == 'Yes']
-        if not alert_df.empty:
-            logging.info(f"Alerts found for {subscription_name}.")
-            return subscription_name, alert_df, result
-    return subscription_name, df, result
+    if df is not None:
+        if alert_mode:
+            alert_df = df[df['Alert'] == 'Yes']
+            if not alert_df.empty:
+                logging.info(f"Alerts found for {subscription_name}.")
+                result = tabulate(alert_df, headers='keys', tablefmt='plain', floatfmt='.3f')
+                return subscription_name, alert_df, result
+            else:
+                logging.info(f"No alerts found for {subscription_name}.")
+                return subscription_name, None, "No alerts found"
+        else:
+            result = tabulate(df, headers='keys', tablefmt='plain', floatfmt='.3f')
+            return subscription_name, df, result
+    else:
+        return subscription_name, None, "No data found"
+
 
 
 

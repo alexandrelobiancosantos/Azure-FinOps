@@ -4,21 +4,21 @@ import statistics
 import subprocess
 import time
 from datetime import datetime, timedelta
-
+ 
 import pandas as pd
 import requests
 from tabulate import tabulate
-
-
+ 
+ 
 def setup_logging():
     """Set up basic logging configuration."""
     logging.basicConfig(level=logging.INFO)
-
+ 
 def handle_errors(exception, message):
     """Handle errors by logging the message and exception, then exiting the program."""
     logging.error(f"{message}: {exception}")
     exit(1)
-
+ 
 def find_common_prefix(strings):
     """Find the longest common prefix among a list of strings."""
     if not strings:
@@ -29,9 +29,7 @@ def find_common_prefix(strings):
             if other[i] != char:
                 return shortest_str[:i]
     return shortest_str
-
-# Funções que interagem com o Azure CLI
-
+ 
 def get_subscription_ids(subscription_prefix):
     """
     Retrieve subscription IDs that start with the given prefix.
@@ -61,11 +59,11 @@ def get_subscription_ids(subscription_prefix):
         handle_errors(e, "JSON decode error")
     except Exception as e:
         handle_errors(e, "Unexpected error")
-
+ 
 def get_access_token():
     """
     Retrieve an access token for the Azure management API.
-
+ 
     Returns:
         str: The access token.
     """
@@ -85,16 +83,13 @@ def get_access_token():
         handle_errors(e, "JSON decode error")
     except Exception as e:
         handle_errors(e, "Unexpected error")
-
-# Funções que processam os dados
-
+ 
 def get_analysis_timeframe(start_date_str=None):
     """
     Get the analysis timeframe retroactive to seven days from the given date or yesterday if no date is given.
-    
     Args:
         start_date_str (str, optional): The start date in 'YYYY-MM-DD' format. Defaults to None.
-
+ 
     Returns:
         tuple: Start date, end date, and timeframe dictionary.
     """
@@ -102,26 +97,24 @@ def get_analysis_timeframe(start_date_str=None):
         end_date = datetime.strptime(start_date_str, '%Y-%m-%d')
     else:
         end_date = datetime.utcnow() - timedelta(days=1)
-    
     start_date = end_date - timedelta(days=7)
-    
     timeframe = {
         "from": start_date.strftime('%Y-%m-%d'),
         "to": end_date.strftime('%Y-%m-%d')
     }
     return start_date, end_date, timeframe
-
+ 
 def build_cost_management_request(subscription_id, grouping_type, grouping_name, access_token):
     """
     Build the request for the Azure Cost Management API.
-
+ 
     Returns:
         tuple: URL, payload, and headers for the API request.
     """
     cost_management_url = f'https://management.azure.com/subscriptions/{subscription_id}/providers/Microsoft.CostManagement/query?api-version=2021-10-01'
-
+ 
     start_date, end_date, timeframe = get_analysis_timeframe()
-
+ 
     payload = {
         "type": "ActualCost",
         "timeframe": "Custom",
@@ -142,14 +135,14 @@ def build_cost_management_request(subscription_id, grouping_type, grouping_name,
             ]
         }
     }
-
+ 
     headers = {
         'Authorization': f'Bearer {access_token}',
         'Content-Type': 'application/json'
     }
-
+ 
     return cost_management_url, payload, headers
-
+ 
 def check_alert(cost_yesterday, average_cost):
     """
     Check if the cost for yesterday exceeds the average cost.
@@ -157,23 +150,23 @@ def check_alert(cost_yesterday, average_cost):
         str: "Yes" if cost_yesterday exceeds average_cost, otherwise "No".
     """
     return "Yes" if cost_yesterday > average_cost else "No"
-
+ 
 def process_costs(costs_by_group, grouping_key, start_date, end_date, analysis_date_str):
     """
     Process costs by group and calculate average costs, alerts, and additional metrics.
-
+ 
     Args:
         costs_by_group (dict): The costs grouped by a specific key.
         grouping_key (str): The key to group costs by.
         start_date (datetime): The start date for the analysis period.
         end_date (datetime): The end date for the analysis period.
         analysis_date_str (str): The string representation of the analysis date.
-
+ 
     Returns:
         list: List of results with average costs, alerts, and additional metrics.
     """
     results = []
-
+ 
     for group_value, costs in costs_by_group.items():
         cost_values = [cost for date, cost in costs]
         average_cost = statistics.mean(cost_values)
@@ -181,7 +174,7 @@ def process_costs(costs_by_group, grouping_key, start_date, end_date, analysis_d
         alert = check_alert(cost_on_analysis_date, average_cost)
         percent_variation = ((cost_on_analysis_date - average_cost) / average_cost) * 100 if average_cost != 0 else 0
         cost_difference = cost_on_analysis_date - average_cost
-
+ 
         results.append({
             grouping_key: group_value,
             "Average Cost": average_cost,
@@ -192,20 +185,19 @@ def process_costs(costs_by_group, grouping_key, start_date, end_date, analysis_d
             "Period of Average Calculation": f"{start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}",
             "Analysis Date": end_date.strftime('%Y-%m-%d')
         })
-
+ 
     return results
-
 
 def request_and_process(url, headers, payload, subscription_name):
     """
     Send request to the Azure Cost Management API and process the response.
-
+ 
     Args:
         url (str): The API URL.
         headers (dict): The request headers.
         payload (dict): The request payload.
         subscription_name (str): The name of the subscription.
-
+ 
     Returns:
         dict or None: The response data or None if no cost found.
     """
@@ -215,132 +207,130 @@ def request_and_process(url, headers, payload, subscription_name):
         time.sleep(1)  # Pausa de 1 segundos entre as requisições
     except requests.exceptions.RequestException as e:
         handle_errors(e, f"Failed to retrieve cost data for subscription '{subscription_name}'")
-
+ 
     try:
         data = response.json()
         logging.debug(f"Received data: {json.dumps(data, indent=2)}")
     except json.JSONDecodeError as e:
         handle_errors(e, "JSON decode error")
-
+ 
     if 'properties' not in data or 'rows' not in data['properties']:
         logging.info("No Cost Found in the response data.")
         return None, 0
-
+ 
     return data
-
+ 
 def analyze_costs(subscription_name, subscription_id, grouping_dimension, access_token, start_date_str=None):
     """
     Analyze costs for a subscription grouped by a specific dimension.
-    
     Args:
         subscription_name (str): Name of the subscription.
         subscription_id (str): ID of the subscription.
         grouping_dimension (str): The dimension to group costs by.
         access_token (str): Azure access token.
         start_date_str (str, optional): The start date for the analysis period. Defaults to None.
-
+ 
     Returns:
         tuple: Analysis result as a table, total cost on the analysis date, and the dataframe.
     """
     cost_management_url, payload, headers = build_cost_management_request(subscription_id, 'Dimension', grouping_dimension, access_token)
-
+ 
     start_date, end_date, _ = get_analysis_timeframe(start_date_str)
-
+ 
     logging.debug(f"Sending request to Cost Management API for subscription {subscription_id} with payload: {json.dumps(payload, indent=2)}")
-
+ 
     data = request_and_process(cost_management_url, headers, payload, subscription_name)
-
+ 
     if data is None:
         return "No Cost Found", 0, None
-
+ 
     costs_by_group = {}
     total_cost_analysis_date = 0
     analysis_date_str = end_date.strftime('%Y%m%d')
-
+ 
     for result in data['properties']['rows']:
         cost = float(result[0])
         date = result[1]
         group = result[2]
-
+ 
         if group not in costs_by_group:
             costs_by_group[group] = []
         costs_by_group[group].append((date, cost))
-
+ 
         if date == int(analysis_date_str):
             total_cost_analysis_date += cost
-
+ 
     results = process_costs(costs_by_group, grouping_dimension, start_date, end_date, analysis_date_str)
-
+ 
     df = pd.DataFrame(results)
-
+ 
     if df.empty:
         logging.info("No data to display.")
         return "No Cost Found", total_cost_analysis_date, None
-
+ 
     table = tabulate(df, headers='keys', tablefmt='plain', floatfmt='.3f')
     return table, total_cost_analysis_date, df
-
+ 
 def analyze_costs_by_tag(subscription_name, subscription_id, tag_key, access_token, start_date_str=None):
     """
     Analyze costs for a subscription grouped by a specific tag key.
-    
     Args:
         subscription_name (str): Name of the subscription.
         subscription_id (str): ID of the subscription.
         tag_key (str): The tag key to group costs by.
         access_token (str): Azure access token.
         start_date_str (str, optional): The start date for the analysis period. Defaults to None.
-
+ 
     Returns:
         tuple: Analysis result as a table, total cost on the analysis date, and the dataframe.
     """
     cost_management_url, payload, headers = build_cost_management_request(subscription_id, 'TagKey', tag_key, access_token)
-
+ 
     start_date, end_date, _ = get_analysis_timeframe(start_date_str)
-
+ 
     logging.debug(f"Sending request to Cost Management API for subscription {subscription_id} with payload: {json.dumps(payload, indent=2)}")
-
+ 
     data = request_and_process(cost_management_url, headers, payload, subscription_name)
-
+ 
     if data is None:
         return "No Cost Found", 0, None
-
+ 
     costs_by_tag = {}
     total_cost_analysis_date = 0
     analysis_date_str = end_date.strftime('%Y%m%d')
-
+ 
     for result in data['properties']['rows']:
         cost = float(result[0])
         date = result[1]
         tag_value = result[3]
-
+ 
         if tag_value:
             if tag_value not in costs_by_tag:
                 costs_by_tag[tag_value] = []
             costs_by_tag[tag_value].append((date, cost))
-
+ 
             if date == int(analysis_date_str):
                 total_cost_analysis_date += cost
-
+ 
     results = process_costs(costs_by_tag, tag_key, start_date, end_date, analysis_date_str)
-
+ 
     df = pd.DataFrame(results)
-
+ 
     if df.empty:
         logging.info("No data to display.")
         return "No Cost Found", total_cost_analysis_date, None
-
+ 
     table = tabulate(df, headers='keys', tablefmt='plain', floatfmt='.3f')
     return table, total_cost_analysis_date, df
-
+ 
 def analyze_subscription(subscription_name, subscription_id, analysis_type, grouping_key, access_token, alert_mode=False, start_date_str=None):
     logging.info(f"\nAnalyzing subscription: {subscription_name} with ID: {subscription_id}")
-
+ 
     if analysis_type.lower() == 'tag':
         result, cost_analysis_date, df = analyze_costs_by_tag(subscription_name, subscription_id, grouping_key, access_token, start_date_str)
     else:
         result, cost_analysis_date, df = analyze_costs(subscription_name, subscription_id, grouping_key, access_token, start_date_str)
-
+ 
     if df is not None:
         if alert_mode:
             alert_df = df[df['Alert'] == 'Yes']
@@ -356,22 +346,17 @@ def analyze_subscription(subscription_name, subscription_id, analysis_type, grou
             return subscription_name, df, result
     else:
         return subscription_name, None, "No data found"
-
-
-
-
-
-
-
-def save_execution_result(status, subscription_results):
-    """
-    Save the analysis result to an Excel file with each subscription in a separate sheet.
-    
+ 
+def save_execution_result(status, subscription_results, common_prefix, grouping_key):
+    """Save the analysis result to an Excel file with each subscription in a separate sheet.
     Args:
         status (str): The status of the execution.
         subscription_results (dict): Dictionary with subscription names as keys and their DataFrames as values.
+        common_prefix (str): The common prefix of the subscription names.
+        grouping_key (str): The key used for grouping in the analysis.
     """
-    filename = f"subscription_analysis_result_{pd.Timestamp.now().strftime('%Y%m%d%H%M%S')}.xlsx"
+    timestamp = pd.Timestamp.now().strftime('%Y%m%d%H%M%S')
+    filename = f"{common_prefix}_{grouping_key}_{timestamp}.xlsx"
     try:
         with pd.ExcelWriter(filename, engine='xlsxwriter') as writer:
             for subscription_name, df in subscription_results.items():

@@ -1,12 +1,12 @@
-
-import sys
-import logging
 import argparse
+import logging
+import sys
 import time
-from utils import (
-    get_access_token, get_subscription_ids, setup_logging, 
-    analyze_subscription, save_execution_result, find_common_prefix
-)
+
+from utils import (analyze_subscription, find_common_prefix, get_access_token,
+                   get_subscription_ids, save_execution_result, setup_logging)
+
+
 def main():
     parser = argparse.ArgumentParser(description='Analyze Azure costs by group or tag with optional alert generation')
     parser.add_argument('subscription_prefix', type=str, help='Prefix of the subscription to analyze')

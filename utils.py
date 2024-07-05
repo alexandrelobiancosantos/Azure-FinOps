@@ -97,7 +97,7 @@ def get_analysis_timeframe(start_date_str=None):
         end_date = datetime.strptime(start_date_str, '%Y-%m-%d')
     else:
         end_date = datetime.utcnow() - timedelta(days=1)
-    start_date = end_date - timedelta(days=7)
+    start_date = end_date - timedelta(days=30)
     timeframe = {
         "from": start_date.strftime('%Y-%m-%d'),
         "to": end_date.strftime('%Y-%m-%d')
@@ -149,7 +149,8 @@ def check_alert(cost_yesterday, average_cost):
     Returns:
         str: "Yes" if cost_yesterday exceeds average_cost, otherwise "No".
     """
-    return "Yes" if cost_yesterday > average_cost else "No"
+    # Alerta redefinido pela madia + 50
+    return "Yes" if cost_yesterday > (average_cost + 50) else "No"
  
 def process_costs(costs_by_group, grouping_key, start_date, end_date, analysis_date_str):
     """
@@ -187,7 +188,7 @@ def process_costs(costs_by_group, grouping_key, start_date, end_date, analysis_d
         })
  
     return results
-
+ 
 def request_and_process(url, headers, payload, subscription_name):
     """
     Send request to the Azure Cost Management API and process the response.
@@ -197,8 +198,7 @@ def request_and_process(url, headers, payload, subscription_name):
         headers (dict): The request headers.
         payload (dict): The request payload.
         subscription_name (str): The name of the subscription.
- 
-    Returns:
+        Returns:
         dict or None: The response data or None if no cost found.
     """
     try:

@@ -84,7 +84,7 @@ def get_access_token():
     except Exception as e:
         handle_errors(e, "Unexpected error")
  
-def get_analysis_timeframe(start_date_str=None):
+def get_analysis_timeframe(start_date_str=None, period=31):
     """
     Get the analysis timeframe retroactive to seven days from the given date or yesterday if no date is given.
     Args:
@@ -97,7 +97,7 @@ def get_analysis_timeframe(start_date_str=None):
         end_date = datetime.strptime(start_date_str, '%Y-%m-%d')
     else:
         end_date = datetime.utcnow() - timedelta(days=1)
-    start_date = end_date - timedelta(days=30)
+    start_date = end_date - timedelta(days=period)
     timeframe = {
         "from": start_date.strftime('%Y-%m-%d'),
         "to": end_date.strftime('%Y-%m-%d')
@@ -281,7 +281,7 @@ def request_and_process(url, headers, payload, subscription_name):
  
     return data
  
-def analyze_costs(subscription_name, subscription_id, grouping_dimension, access_token, start_date_str=None):
+'''def analyze_costs(subscription_name, subscription_id, grouping_dimension, access_token, start_date_str=None):
     """
     Analyze costs for a subscription grouped by a specific dimension.
     Args:
@@ -382,15 +382,121 @@ def analyze_costs_by_tag(subscription_name, subscription_id, tag_key, access_tok
         return "No Cost Found", total_cost_analysis_date, None
  
     table = tabulate(df, headers='keys', tablefmt='plain', floatfmt='.3f')
-    return table, total_cost_analysis_date, df
+    return table, total_cost_analysis_date, df'''
  
-def analyze_subscription(subscription_name, subscription_id, analysis_type, grouping_key, access_token, alert_mode=False, start_date_str=None):
+def analyze_costs(subscription_name, subscription_id, grouping_dimension, access_token, start_date_str=None, period=31):
+    """
+    Analyze costs for a subscription grouped by a specific dimension.
+    Args:
+        subscription_name (str): Name of the subscription.
+        subscription_id (str): ID of the subscription.
+        grouping_dimension (str): The dimension to group costs by.
+        access_token (str): Azure access token.
+        start_date_str (str, optional): The start date for the analysis period. Defaults to None.
+        period (int, optional): Number of days for the analysis period. Defaults to 31.
+
+    Returns:
+        tuple: Analysis result as a table, total cost on the analysis date, and the dataframe.
+    """
+    cost_management_url, payload, headers = build_cost_management_request(subscription_id, 'Dimension', grouping_dimension, access_token)
+
+    start_date, end_date, _ = get_analysis_timeframe(start_date_str, period)
+
+    logging.debug(f"Sending request to Cost Management API for subscription {subscription_id} with payload: {json.dumps(payload, indent=2)}")
+
+    data = request_and_process(cost_management_url, headers, payload, subscription_name)
+
+    if data is None:
+        return "No Cost Found", 0, None
+
+    costs_by_group = {}
+    total_cost_analysis_date = 0
+    analysis_date_str = end_date.strftime('%Y%m%d')
+
+    for result in data['properties']['rows']:
+        cost = float(result[0])
+        date = result[1]
+        group = result[2]
+
+        if group not in costs_by_group:
+            costs_by_group[group] = []
+        costs_by_group[group].append((date, cost))
+
+        if date == int(analysis_date_str):
+            total_cost_analysis_date += cost
+
+    results = process_costs(costs_by_group, grouping_dimension, start_date, end_date, analysis_date_str)
+
+    df = pd.DataFrame(results)
+
+    if df.empty:
+        logging.info("No data to display.")
+        return "No Cost Found", total_cost_analysis_date, None
+
+    table = tabulate(df, headers='keys', tablefmt='plain', floatfmt='.3f')
+    return table, total_cost_analysis_date, df
+
+def analyze_costs_by_tag(subscription_name, subscription_id, tag_key, access_token, start_date_str=None, period=31):
+    """
+    Analyze costs for a subscription grouped by a specific tag key.
+    Args:
+        subscription_name (str): Name of the subscription.
+        subscription_id (str): ID of the subscription.
+        tag_key (str): The tag key to group costs by.
+        access_token (str): Azure access token.
+        start_date_str (str, optional): The start date for the analysis period. Defaults to None.
+        period (int, optional): Number of days for the analysis period. Defaults to 31.
+
+    Returns:
+        tuple: Analysis result as a table, total cost on the analysis date, and the dataframe.
+    """
+    cost_management_url, payload, headers = build_cost_management_request(subscription_id, 'TagKey', tag_key, access_token)
+
+    start_date, end_date, _ = get_analysis_timeframe(start_date_str, period)
+
+    logging.debug(f"Sending request to Cost Management API for subscription {subscription_id} with payload: {json.dumps(payload, indent=2)}")
+
+    data = request_and_process(cost_management_url, headers, payload, subscription_name)
+
+    if data is None:
+        return "No Cost Found", 0, None
+
+    costs_by_tag = {}
+    total_cost_analysis_date = 0
+    analysis_date_str = end_date.strftime('%Y%m%d')
+
+    for result in data['properties']['rows']:
+        cost = float(result[0])
+        date = result[1]
+        tag_value = result[3]
+
+        if tag_value:
+            if tag_value not in costs_by_tag:
+                costs_by_tag[tag_value] = []
+            costs_by_tag[tag_value].append((date, cost))
+
+            if date == int(analysis_date_str):
+                total_cost_analysis_date += cost
+
+    results = process_costs(costs_by_tag, tag_key, start_date, end_date, analysis_date_str)
+
+    df = pd.DataFrame(results)
+
+    if df.empty:
+        logging.info("No data to display.")
+        return "No Cost Found", total_cost_analysis_date, None
+
+    table = tabulate(df, headers='keys', tablefmt='plain', floatfmt='.3f')
+    return table, total_cost_analysis_date, df
+
+
+def analyze_subscription(subscription_name, subscription_id, analysis_type, grouping_key, access_token, alert_mode=False, start_date_str=None, period=31):
     logging.info(f"\nAnalyzing subscription: {subscription_name} with ID: {subscription_id}")
  
     if analysis_type.lower() == 'tag':
-        result, cost_analysis_date, df = analyze_costs_by_tag(subscription_name, subscription_id, grouping_key, access_token, start_date_str)
+        result, cost_analysis_date, df = analyze_costs_by_tag(subscription_name, subscription_id, grouping_key, access_token, start_date_str, period)
     else:
-        result, cost_analysis_date, df = analyze_costs(subscription_name, subscription_id, grouping_key, access_token, start_date_str)
+        result, cost_analysis_date, df = analyze_costs(subscription_name, subscription_id, grouping_key, access_token, start_date_str, period)
  
     if df is not None:
         if alert_mode:

@@ -15,6 +15,7 @@ def main():
     parser.add_argument('--alert', action='store_true', help='Enable alert mode to generate alerts for high costs')
     parser.add_argument('--save', action='store_true', help='Save results to a CSV file')
     parser.add_argument('--date', type=str, help='Start date for the analysis period in YYYY-MM-DD format')
+    parser.add_argument('--period', type=int, default=31, help='Number of days for the analysis period')
     args = parser.parse_args()
     setup_logging()
     subscription_prefix = args.subscription_prefix
@@ -23,6 +24,7 @@ def main():
     alert_mode = args.alert
     save_xlsx = args.save
     start_date_str = args.date
+    period = args.period  # Novo argumento
     # logging.info(f"Starting analysis for {analysis_type} with grouping key: {grouping_key} and subscription prefix: {subscription_prefix}")
     try:
         access_token = get_access_token()
@@ -35,7 +37,7 @@ def main():
         for subscription_name, subscription_id in subscription_ids:
             # Remove the common prefix from the subscription name for the worksheet name
             short_name = subscription_name.replace(common_prefix, '').strip()
-            sub_name, df, result = analyze_subscription(subscription_name, subscription_id, analysis_type, grouping_key, access_token, alert_mode, start_date_str)
+            sub_name, df, result = analyze_subscription(subscription_name, subscription_id, analysis_type, grouping_key, access_token, alert_mode, start_date_str, period)
             if df is not None:
                 subscription_results[short_name] = df
             logging.info(result)
@@ -48,3 +50,4 @@ def main():
         sys.exit(1)
 if __name__ == "__main__":
     main()
+

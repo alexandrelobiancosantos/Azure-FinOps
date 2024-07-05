@@ -1,19 +1,18 @@
-import argparse
-import logging
 import sys
+import logging
+import argparse
 import time
-
-from utils import (analyze_subscription, find_common_prefix, get_access_token,
-                   get_subscription_ids, save_execution_result, setup_logging)
-
-
+from utils import (
+    get_access_token, get_subscription_ids, setup_logging, 
+    analyze_subscription, save_execution_result, find_common_prefix
+)
 def main():
     parser = argparse.ArgumentParser(description='Analyze Azure costs by group or tag with optional alert generation')
     parser.add_argument('subscription_prefix', type=str, help='Prefix of the subscription to analyze')
-    parser.add_argument('analysis_type', type=str, choices=['grupo', 'tag'], help='Type of analysis: "grupo" ou "tag"')
+    parser.add_argument('analysis_type', type=str, choices=['group', 'tag'], help='Type of analysis: "grupo" ou "tag"')
     parser.add_argument('grouping_key', type=str, help='Grouping key for the analysis (e.g., ServiceName, Projeto)')
     parser.add_argument('--alert', action='store_true', help='Enable alert mode to generate alerts for high costs')
-    parser.add_argument('--csv', action='store_true', help='Save results to a CSV file')
+    parser.add_argument('--save', action='store_true', help='Save results to a CSV file')
     parser.add_argument('--date', type=str, help='Start date for the analysis period in YYYY-MM-DD format')
     args = parser.parse_args()
     setup_logging()
@@ -21,7 +20,7 @@ def main():
     analysis_type = args.analysis_type
     grouping_key = args.grouping_key
     alert_mode = args.alert
-    save_csv = args.csv
+    save_xlsx = args.save
     start_date_str = args.date
     logging.info(f"Starting analysis for {analysis_type} with grouping key: {grouping_key} and subscription prefix: {subscription_prefix}")
     try:
@@ -41,7 +40,7 @@ def main():
             logging.info(result)
             # Sleep to avoid too many requests
             time.sleep(2)  # Sleep for 2 seconds
-        if save_csv and subscription_results:
+        if save_xlsx and subscription_results:
             save_execution_result("sucesso", subscription_results, common_prefix, grouping_key)
     except Exception as e:
         logging.error(f"An error occurred: {e}")

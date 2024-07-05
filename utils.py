@@ -150,9 +150,70 @@ def check_alert(cost_yesterday, average_cost):
         str: "Yes" if cost_yesterday exceeds average_cost, otherwise "No".
     """
     # Alerta redefinido pela madia + 50
-    return "Yes" if cost_yesterday > (average_cost + 50) else "No"
+    return "Yes" if cost_yesterday > (average_cost + 0.01) else "No"
  
 def process_costs(costs_by_group, grouping_key, start_date, end_date, analysis_date_str):
+    """
+    Process costs by group and calculate average costs, alerts, and additional metrics.
+
+    Args:
+        costs_by_group (dict): The costs grouped by a specific key.
+        grouping_key (str): The key to group costs by.
+        start_date (datetime): The start date for the analysis period.
+        end_date (datetime): The end date for the analysis period.
+        analysis_date_str (str): The string representation of the analysis date.
+
+    Returns:
+        list: List of results with average costs, alerts, and additional metrics.
+    """
+    results = []
+    analysis_date = datetime.strptime(analysis_date_str, '%Y%m%d')
+    is_analysis_date_weekend = analysis_date.weekday() >= 5  # 5 = Saturday, 6 = Sunday
+
+    for group_value, costs in costs_by_group.items():
+        weekday_costs = []
+        weekend_costs = []
+
+        for single_date in (start_date + timedelta(n) for n in range((end_date - start_date).days + 1)):
+            date_int = int(single_date.strftime('%Y%m%d'))
+            day_cost = next((cost for date, cost in costs if date == date_int), 0)
+            if single_date.weekday() >= 5:  # Saturday or Sunday
+                weekend_costs.append(day_cost)
+            else:  # Weekday
+                weekday_costs.append(day_cost)
+
+        if is_analysis_date_weekend:
+            total_days = len(weekend_costs)
+            total_cost = sum(weekend_costs)
+        else:
+            total_days = len(weekday_costs)
+            total_cost = sum(weekday_costs)
+
+        average_cost = total_cost / total_days if total_days > 0 else 0
+        cost_on_analysis_date = next((cost for date, cost in costs if date == int(analysis_date_str)), 0)
+        alert = check_alert(cost_on_analysis_date, average_cost)
+        percent_variation = ((cost_on_analysis_date - average_cost) / average_cost) * 100 if average_cost != 0 else 0
+        cost_difference = cost_on_analysis_date - average_cost
+
+        results.append({
+            grouping_key: group_value,
+            "Average Cost": average_cost,
+            "Analysis Date Cost": cost_on_analysis_date,
+            "Alert": alert,
+            "Percent Variation": percent_variation,
+            "Cost Difference": cost_difference,
+            "Period of Average Calculation": f"{start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}",
+            "Number of Days": total_days,
+            "Analysis Date": end_date.strftime('%Y-%m-%d')
+        })
+
+    return results
+
+
+
+
+
+'''def process_costs(costs_by_group, grouping_key, start_date, end_date, analysis_date_str):
     """
     Process costs by group and calculate average costs, alerts, and additional metrics.
  
@@ -187,7 +248,7 @@ def process_costs(costs_by_group, grouping_key, start_date, end_date, analysis_d
             "Analysis Date": end_date.strftime('%Y-%m-%d')
         })
  
-    return results
+    return results'''
  
 def request_and_process(url, headers, payload, subscription_name):
     """

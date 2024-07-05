@@ -1,11 +1,12 @@
-import sys
-import logging
 import argparse
+import logging
+import sys
 import time
-from utils import (
-    get_access_token, get_subscription_ids, setup_logging, 
-    analyze_subscription, save_execution_result, find_common_prefix
-)
+
+from utils import (analyze_subscription, find_common_prefix, get_access_token,
+                   get_subscription_ids, save_execution_result, setup_logging)
+
+
 def main():
     parser = argparse.ArgumentParser(description='Analyze Azure costs by group or tag with optional alert generation')
     parser.add_argument('subscription_prefix', type=str, help='Prefix of the subscription to analyze')
@@ -22,10 +23,10 @@ def main():
     alert_mode = args.alert
     save_xlsx = args.save
     start_date_str = args.date
-    logging.info(f"Starting analysis for {analysis_type} with grouping key: {grouping_key} and subscription prefix: {subscription_prefix}")
+    # logging.info(f"Starting analysis for {analysis_type} with grouping key: {grouping_key} and subscription prefix: {subscription_prefix}")
     try:
         access_token = get_access_token()
-        logging.info("Access token generated successfully.")
+        # logging.info("Access token generated successfully.")
         subscription_ids = get_subscription_ids(subscription_prefix)
         subscription_results = {}
         # Get the subscription names

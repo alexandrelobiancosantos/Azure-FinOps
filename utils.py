@@ -4,12 +4,12 @@ import statistics
 import subprocess
 import time
 from datetime import datetime, timedelta
- 
+
 import pandas as pd
 import requests
 from tabulate import tabulate
- 
- 
+
+
 def setup_logging():
     """Set up basic logging configuration."""
     logging.basicConfig(level=logging.INFO)
@@ -75,7 +75,7 @@ def get_access_token():
             check=True
         )
         token_info = json.loads(result.stdout)
-        logging.info(f"Access token generated successfully.")
+        # logging.info(f"Access token generated successfully.")
         return token_info['accessToken']
     except subprocess.CalledProcessError as e:
         handle_errors(e, "Command error")

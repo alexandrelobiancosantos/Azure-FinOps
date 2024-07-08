@@ -2,9 +2,33 @@ import argparse
 import logging
 import sys
 import time
+from datetime import datetime
 
+from utils import request_count  # Importa o contador de requisições
 from utils import (analyze_subscription, find_common_prefix, get_access_token,
                    get_subscription_ids, save_execution_result, setup_logging)
+
+
+def validate_parameters(subscription_prefix, analysis_type, grouping_key, start_date_str, period):
+    """Validates the provided parameters."""
+    errors = []
+    
+    if not subscription_prefix:
+        errors.append("Subscription prefix cannot be empty.")
+    
+    if analysis_type in ['group', 'tag'] and not grouping_key:
+        errors.append("Grouping key is required for analysis types 'group' and 'tag'.")
+    
+    if start_date_str:
+        try:
+            datetime.strptime(start_date_str, '%Y-%m-%d')
+        except ValueError:
+            errors.append(f"Start date '{start_date_str}' is not in the correct format YYYY-MM-DD.")
+    
+    if period <= 0:
+        errors.append("Period must be a positive integer.")
+    
+    return errors
 
 
 def main():
@@ -18,6 +42,7 @@ def main():
     parser.add_argument('--period', type=int, default=31, help='Number of days for the analysis period')
     args = parser.parse_args()
     setup_logging()
+    
     subscription_prefix = args.subscription_prefix
     analysis_type = args.analysis_type
     grouping_key = args.grouping_key
@@ -25,6 +50,13 @@ def main():
     save_xlsx = args.save
     start_date_str = args.date
     period = args.period
+
+    # Validate parameters
+    validation_errors = validate_parameters(subscription_prefix, analysis_type, grouping_key, start_date_str, period)
+    if validation_errors:
+        for error in validation_errors:
+            logging.error(error)
+        sys.exit(1)
 
     try:
         access_token = get_access_token()
@@ -41,11 +73,11 @@ def main():
             time.sleep(2)  # Sleep for 2 seconds
         if save_xlsx and subscription_results:
             save_execution_result("sucesso", subscription_results, common_prefix, grouping_key)
+        
+        logging.info(f"Total number of requests made: {request_count}")  # Loga o número total de requisições
     except Exception as e:
         logging.error(f"An error occurred: {e}")
         sys.exit(1)
 
 if __name__ == "__main__":
     main()
-
-

@@ -9,6 +9,20 @@ import pandas as pd
 import requests
 from tabulate import tabulate
 
+# Contador global de requisições e tempo da última requisição
+request_count = 0
+last_request_time = None
+
+def increment_request_count():
+    global request_count, last_request_time
+    request_count += 1
+    current_time = time.time()
+    if last_request_time is not None:
+        interval = current_time - last_request_time
+        logging.info(f"Number of requests made: {request_count} | Interval since last request: {interval:.2f} seconds")
+    else:
+        logging.info(f"Number of requests made: {request_count} | This is the first request.")
+    last_request_time = current_time
 
 def setup_logging():
     """Set up basic logging configuration."""
@@ -43,6 +57,7 @@ def get_subscription_ids(subscription_prefix):
             text=True,
             check=True
         )
+        increment_request_count()  # Incrementa o contador de requisições
         subscriptions = json.loads(result.stdout)
         subscription_ids = [
             (subscription['name'], subscription['id'])
@@ -74,8 +89,8 @@ def get_access_token():
             text=True,
             check=True
         )
+        increment_request_count()  # Incrementa o contador de requisições
         token_info = json.loads(result.stdout)
-        # logging.info(f"Access token generated successfully.")
         return token_info['accessToken']
     except subprocess.CalledProcessError as e:
         handle_errors(e, "Command error")
@@ -133,14 +148,12 @@ def build_cost_management_request(subscription_id, grouping_type, grouping_name,
     }
     return cost_management_url, payload, headers
 
- 
 def check_alert(cost_yesterday, average_cost):
     """
     Check if the cost for yesterday exceeds the average cost.
     Returns:
         str: "Yes" if cost_yesterday exceeds average_cost, otherwise "No".
     """
-    # Alerta redefinido pela madia + 50
     return "Yes" if cost_yesterday > (average_cost + 0.01) else "No"
  
 def process_costs(costs_by_group, grouping_key, start_date, end_date, analysis_date_str):
@@ -201,8 +214,6 @@ def process_costs(costs_by_group, grouping_key, start_date, end_date, analysis_d
     return results
 
 
-
-
 def request_and_process(url, headers, payload, subscription_name):
     """
     Send request to the Azure Cost Management API and process the response.
@@ -218,6 +229,7 @@ def request_and_process(url, headers, payload, subscription_name):
     try:
         response = requests.post(url, headers=headers, json=payload)
         response.raise_for_status()
+        increment_request_count()  # Incrementa o contador de requisições
         time.sleep(1)  # Pausa de 1 segundos entre as requisições
     except requests.exceptions.RequestException as e:
         handle_errors(e, f"Failed to retrieve cost data for subscription '{subscription_name}'")
@@ -381,9 +393,6 @@ def analyze_costs_by_subs(subscription_name, subscription_id, access_token, star
         "Analysis Date": end_date.strftime('%Y-%m-%d')
     }
 
-
-
-
 def analyze_subscription(subscription_name, subscription_id, analysis_type, grouping_key, access_token, alert_mode=False, start_date_str=None, period=31):
     logging.info(f"\nAnalyzing subscription: {subscription_name} with ID: {subscription_id}")
     
@@ -428,3 +437,4 @@ def save_execution_result(status, subscription_results, common_prefix, grouping_
         logging.info(f"Results saved to {filename}")
     except Exception as e:
         logging.error(f"Failed to save results: {e}")
+

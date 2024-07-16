@@ -1,6 +1,6 @@
 import json
 import logging
-import statistics
+#import statistics
 import subprocess
 import time
 from datetime import datetime, timedelta
@@ -8,6 +8,10 @@ from datetime import datetime, timedelta
 import pandas as pd
 import requests
 from tabulate import tabulate
+import openpyxl
+from openpyxl.chart import PieChart, Reference
+#from openpyxl.drawing.image import Image
+from openpyxl.chart.label import DataLabelList
 
 # Contador global de requisições e tempo da última requisição
 request_count = 0
@@ -421,20 +425,53 @@ def analyze_subscription(subscription_name, subscription_id, analysis_type, grou
         return subscription_name, None, "No data found"
 
 def save_execution_result(status, subscription_results, common_prefix, grouping_key):
-    """Save the analysis result to an Excel file with each subscription in a separate sheet.
-    Args:
-        status (str): The status of the execution.
-        subscription_results (dict): Dictionary with subscription names as keys and their DataFrames as values.
-        common_prefix (str): The common prefix of the subscription names.
-        grouping_key (str): The key used for grouping in the analysis.
-    """
+    """Save the analysis result to an Excel file with each subscription in a separate sheet and generate pie charts."""
     timestamp = pd.Timestamp.now().strftime('%Y%m%d%H%M%S')
     filename = f"{common_prefix}_{grouping_key}_{timestamp}.xlsx"
     try:
+        # Save the data to Excel using pandas
         with pd.ExcelWriter(filename, engine='xlsxwriter') as writer:
             for subscription_name, df in subscription_results.items():
                 df.to_excel(writer, sheet_name=subscription_name, index=False, float_format="%.2f")
+
+        # Load the saved Excel file using openpyxl
+        wb = openpyxl.load_workbook(filename)
+        
+        for subscription_name in subscription_results.keys():
+            ws = wb[subscription_name]
+            # Create the first pie chart for Average Cost
+            pie1 = PieChart()
+            labels = Reference(ws, min_col=1, min_row=2, max_row=ws.max_row)
+            data = Reference(ws, min_col=2, min_row=1, max_row=ws.max_row)
+            pie1.add_data(data, titles_from_data=True)
+            pie1.set_categories(labels)
+            pie1.title = "Average Cost Distribution"
+            pie1.dataLabels = DataLabelList()
+            pie1.dataLabels.showPercent = False
+            pie1.dataLabels.showSerName = False
+            pie1.dataLabels.showCatName = False
+            pie1.dataLabels.showVal = True
+
+            # Place the first pie chart on the worksheet
+            ws.add_chart(pie1, "A10")
+
+            # Create the second pie chart for Analysis Date Cost
+            pie2 = PieChart()
+            data = Reference(ws, min_col=3, min_row=1, max_row=ws.max_row)
+            pie2.add_data(data, titles_from_data=True)
+            pie2.set_categories(labels)
+            analysis_date = ws.cell(row=2, column=9).value  # Assumes Analysis Date is in the first row, column 10
+            pie2.title = f"Cost Distribution on {analysis_date}"
+            pie2.dataLabels = DataLabelList()
+            pie2.dataLabels.showPercent = False
+            pie2.dataLabels.showSerName = False
+            pie2.dataLabels.showCatName = False
+            pie2.dataLabels.showVal = True
+
+            # Place the second pie chart on the worksheet
+            ws.add_chart(pie2, "J10")
+
+        # Save the modified Excel file
+        wb.save(filename)
         logging.info(f"Results saved to {filename}")
     except Exception as e:
-        logging.error(f"Failed to save results: {e}")
-

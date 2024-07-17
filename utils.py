@@ -475,3 +475,4 @@ def save_execution_result(status, subscription_results, common_prefix, grouping_
         wb.save(filename)
         logging.info(f"Results saved to {filename}")
     except Exception as e:
+        logging.error(f"Failed to save results: {e}")
